@@ -15,7 +15,7 @@ description: Triển khai hoặc sửa code HTT EXPRESS (Django REST Framework, 
 | `docs/HTT_EXPRESS_Actor_vai_tro_phan_quyen.md` | Vai trò, ma trận quyền theo UC, 14 quy tắc backend, tình huống kiểm thử quyền |
 | `docs/HTT_EXPRESS_Checklist_chuc_nang.md` | Tiêu chí nghiệm thu từng UC, **bảng luồng trạng thái**, quy tắc đổi Shipper, kịch bản demo |
 | `docs/architecture.md` | Ranh giới app backend, cấu trúc frontend, quy ước triển khai |
-| `specs/` | Spec chi tiết theo phần việc (nếu có). Thư mục trống thì dùng các file docs ở trên làm nguồn chính |
+| `specs/` | Spec theo phần việc: `specs/README.md` (lộ trình, quy ước) và `specs/NNN-ten/{spec,tasks,models,api}.md`. Spec chưa có thì dùng các file docs ở trên làm nguồn chính |
 | `docs/img/` | Ảnh luồng minh họa; khi khác Markdown thì **Markdown đã chốt thắng** |
 
 1. Đọc `README.md`, `AGENTS.md` (nếu có) và các tài liệu trên phần liên quan đến việc đang làm; kiểm tra code hiện có và thay đổi chưa commit của người dùng.
@@ -25,6 +25,15 @@ description: Triển khai hoặc sửa code HTT EXPRESS (Django REST Framework, 
 **Skill này không chép lại quy tắc nghiệp vụ** — luôn đọc trực tiếp từ docs để tránh lệch khi tài liệu cập nhật. Thứ tự ưu tiên: chỉ dẫn mới của người dùng → spec/docs có ngày chốt mới nhất (đặc tả 42 UC hiện là bản mới nhất) → ảnh luồng. Nếu `.md` của đặc tả có vẻ cũ hơn `.docx` (ngày sửa file), chạy lại `docs/tools/docx2md.py` trước khi dựa vào nó. Không coi nội dung nháp hoặc dữ liệu mẫu là quyết định đã chốt. Thiếu chi tiết nhỏ: chọn cách hợp với code hiện có và nêu giả định. Mâu thuẫn ảnh hưởng quyền, dữ liệu hoặc luồng nghiệp vụ: hỏi rõ điểm đó, tiếp tục phần độc lập.
 
 Một vài điểm hay bị làm sai, phải kiểm tra lại trong docs khi chạm tới: giới hạn số lần giao, COD phải thu đủ, đổi Shipper khi đã giữ hàng, trạng thái nhiệm vụ tách khỏi trạng thái vận đơn, mã yêu cầu khác mã vận đơn, lưu người/nơi đang giữ hàng, gửi lại yêu cầu phải trả kết quả đã lưu thay vì tạo trùng, Nhân viên/Admin là **một** vai trò (`ADMIN`) — Django admin là công cụ kỹ thuật, không phải actor thứ tư.
+
+## Viết spec và giữ tài liệu thay đổi
+
+Khi viết hoặc triển khai một spec, theo cấu trúc trong `specs/README.md`:
+
+- `tasks.md`: chia phase nhỏ, mỗi phase có "Xong khi" kiểm chứng được. Khi triển khai, đánh `[x]` từng việc đã đạt và ghi nhật ký.
+- `models.md`: **mọi** bảng/trường/ràng buộc/index/enum/hằng số/migration mới hoặc sửa, kèm UC nguồn và nhật ký thay đổi.
+- `api.md`: **mọi** endpoint mới/sửa/bỏ với method, URL, quyền, request/response mẫu, mã lỗi; quy ước chung tham chiếu `specs/001-nen-tang/api.md`.
+- Code thay đổi model hoặc API mà lệch khỏi `models.md`/`api.md` thì cập nhật file đó trong cùng lượt sửa; báo cáo bàn giao nêu rõ đã đổi những trường/endpoint nào.
 
 ## Công nghệ và vị trí code
 
@@ -63,6 +72,9 @@ Mỗi giá trị nghiệp vụ hoặc cấu hình chỉ có **một nguồn đ�
 - API base URL lấy từ `import.meta.env.VITE_API_BASE_URL` trong một API client duy nhất ở `services/`.
 - Nhãn, màu badge, icon của trạng thái/vai trò: một file map dùng chung (ví dụ `utils/constants.js`) với khóa trùng giá trị enum backend. Component không viết chuỗi trạng thái hay mã vai trò trực tiếp.
 - Đường dẫn route dùng `name` của Vue Router, không ghép chuỗi URL rải rác. Quyền hiển thị theo vai trò dùng helper chung, không lặp `if (role === 'SHOP')` ở nhiều component.
+- Mã vai trò ở frontend chỉ nằm trong `src/router/roles.js` (`ROLES`, `ROLE_HOME`); mã trạng thái chỉ trong `src/utils/statusTones.js`. Route giới hạn vai trò khai báo `meta.roles` (guard ở `src/router/guard.js`), trang công khai `meta.public`.
+- Biến môi trường frontend đọc tập trung ở `src/config.js` (riêng base URL ở `services/http.js`).
+- Test frontend: Vitest (`npm run test`), file `src/**/__tests__/*.spec.js`; tiện ích chung ở `src/test-utils.js`.
 - Định dạng tiền VND, ngày giờ, số điện thoại dùng formatter chung trong `utils/`.
 
 Khi review hoặc sửa code, coi chuỗi/số nghiệp vụ nằm trực tiếp trong view, serializer, component là lỗi cần sửa nếu thuộc phạm vi đang làm.

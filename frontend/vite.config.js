@@ -1,14 +1,24 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-export default defineConfig({
-  plugins: [vue()],
-  server: {
-    host: '127.0.0.1',
-    port: 5173,
-    strictPort: true,
-    proxy: {
-      '/api': 'http://127.0.0.1:8000',
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'VITE_')
+
+  return {
+    plugins: [vue()],
+    server: {
+      host: '127.0.0.1',
+      port: 5173,
+      strictPort: true,
+      proxy: {
+        // Đích proxy đọc từ VITE_PROXY_TARGET (frontend/.env); mặc định Django local.
+        // changeOrigin: false — GIỮ Host gốc (127.0.0.1:5173). Dạng rút gọn '/api': 'http://...' của Vite tự bật
+        // changeOrigin: true → Django thấy Host 127.0.0.1:8000 khác Origin trình duyệt → CSRF từ chối đăng nhập (403).
+        '/api': {
+          target: env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000',
+          changeOrigin: false,
+        },
+      },
     },
-  },
+  }
 })

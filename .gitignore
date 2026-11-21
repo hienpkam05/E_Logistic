@@ -12,3 +12,6 @@ backend/staticfiles/
 backend/media/
 .DS_Store
 *.log
+
+# Tài khoản demo sinh bởi seed_demo (chứa mật khẩu)
+.demo-accounts.txt
