@@ -12,6 +12,8 @@ export const useMetaStore = defineStore('meta', () => {
 
   const ready = computed(() => choices.value !== null)
   const limits = computed(() => choices.value?.limits ?? {})
+  // Điểm tập kết duy nhất (spec 008 D6): { name, address, phone } — cấu hình ở backend .env.
+  const hub = computed(() => choices.value?.hub ?? null)
 
   // { group: Map(value -> item) } để tra cứu O(1).
   const index = computed(() => {
@@ -58,5 +60,5 @@ export const useMetaStore = defineStore('meta', () => {
     return index.value[group]?.get(value)?.terminal === true
   }
 
-  return { choices, loading, error, ready, limits, load, options, label, isTerminal }
+  return { choices, loading, error, ready, limits, hub, load, options, label, isTerminal }
 })

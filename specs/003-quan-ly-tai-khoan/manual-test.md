@@ -2,6 +2,14 @@
 
 Dùng cho bước 6.3 ở [tasks.md](tasks.md). Mỗi bước ghi **Làm** và **Mong đợi**; đánh `[x]` khi đúng, ghi lỗi vào bảng tổng kết. Phần quy tắc khó tạo bằng tay (hai Admin khóa nhau cùng lúc, Admin cuối cùng) đã có test tự động — xem tasks.md Phase 3.
 
+
+> **Giao diện mới (21/11/2026):**
+> - Menu chức năng nằm ở **thanh bên trái**; điện thoại bấm ☰ để mở.
+> - Chuông thông báo ở góc phải thanh trên.
+> - "Thông tin cá nhân", "Đổi mật khẩu", "Đăng xuất" nằm trong **menu avatar**: bấm vào tên/ảnh đại diện ở góc phải.
+>
+> Các bước ghi "bấm Đăng xuất" nghĩa là mở menu avatar rồi bấm.
+
 ## Chuẩn bị (một lần)
 
 1. Docker Desktop + database: `docker compose --env-file backend/.env up -d db`
@@ -27,11 +35,11 @@ Tài khoản tạo thêm trong lúc thử (`thu_shipper`…) **không xóa đư�
 
 ## A. Vào màn hình và phân quyền
 
-- [ ] **A1** Làm: cửa sổ thường đăng nhập `demo_nhanvien`. Mong đợi: thanh trên có "Quản lý tài khoản", "Quản lý Shipper"; trang chủ có thẻ "Chức năng" với hai liên kết đó.
+- [ ] **A1** Làm: cửa sổ thường đăng nhập `demo_nhanvien`. Mong đợi: thanh bên có "Quản lý tài khoản", "Quản lý Shipper"; trang chủ có mục "Chức năng" với hai ô đó.
 - [ ] **A2** Làm: bấm "Quản lý tài khoản". Mong đợi: bảng 6 tài khoản; cột Trạng thái: `demo_khoa` "Bị khóa" (đỏ), `demo_mktam` "Chờ đổi mật khẩu" (vàng), còn lại "Hoạt động".
 - [ ] **A3** Làm: bấm "Quản lý Shipper". Mong đợi: tiêu đề "Quản lý Shipper", chỉ `demo_khoa`, `demo_shipper`; nút "Thêm Shipper".
 - [ ] **A4** Làm: mở **tab mới** dán thẳng `http://127.0.0.1:5173/staff/accounts?role=SHIPPER`. Mong đợi: vẫn chỉ 2 Shipper (lỗi đã sửa ở Phase 5).
-- [ ] **A5** Làm: cửa sổ ẩn danh đăng nhập `demo_shop`, gõ `http://127.0.0.1:5173/staff/accounts`. Mong đợi: bị đưa về `/shop`; thanh trên không có "Quản lý tài khoản". Đăng xuất cửa sổ ẩn danh.
+- [ ] **A5** Làm: cửa sổ ẩn danh đăng nhập `demo_shop`, gõ `http://127.0.0.1:5173/staff/accounts`. Mong đợi: bị đưa về `/shop`; thanh bên không có "Quản lý tài khoản". Đăng xuất cửa sổ ẩn danh.
 
 ## B. Danh sách — lọc, tìm (UC02.4, UC06.1)
 
@@ -50,7 +58,7 @@ Tài khoản tạo thêm trong lúc thử (`thu_shipper`…) **không xóa đư�
 - [ ] **C3** Làm: Tên đăng nhập `tên có dấu`. Mong đợi: lỗi định dạng tên đăng nhập.
 - [ ] **C4** Làm: Tên đăng nhập `thu_shipper`, họ tên `Shipper Thử`, SĐT `0999000099` → Tạo. Mong đợi: form biến mất; báo "Đã tạo tài khoản thu_shipper"; hộp vàng "Chỉ hiển thị một lần" với mật khẩu tạm 12 ký tự. **Ghi lại mật khẩu này.**
 - [ ] **C5** Làm: bấm "Sao chép", dán vào Notepad. Mong đợi: đúng mật khẩu đang hiện.
-- [ ] **C6** Làm: bấm "Quản lý tài khoản" trên thanh trên. Mong đợi: hộp hỏi "Mật khẩu tạm sẽ không xem lại được…"; chọn **Hủy** → vẫn ở trang, mật khẩu vẫn hiện.
+- [ ] **C6** Làm: bấm "Quản lý tài khoản" trên thanh bên. Mong đợi: hộp hỏi "Mật khẩu tạm sẽ không xem lại được…"; chọn **Hủy** → vẫn ở trang, mật khẩu vẫn hiện.
 - [ ] **C7** Làm: bấm "Tôi đã ghi lại". Mong đợi: sang trang chi tiết `thu_shipper`, trạng thái "Chờ đổi mật khẩu", lịch sử có "Tạo tài khoản — bởi Nhân viên điều phối (demo) — Vai trò: Shipper".
 - [ ] **C8** Làm: cửa sổ ẩn danh đăng nhập `thu_shipper` bằng mật khẩu tạm. Mong đợi: bị buộc sang Đổi mật khẩu; đổi xong vào `/shipper`.
 - [ ] **C9** Làm: "Thêm tài khoản" từ "Quản lý tài khoản" (không qua Shipper). Mong đợi: có ô chọn Vai trò (Shop / Nhân viên/Admin / Shipper); bấm Hủy → về danh sách, không tạo gì.

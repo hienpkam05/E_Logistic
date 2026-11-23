@@ -46,6 +46,12 @@ describe('AccountListView', () => {
     expect(rows[1].find('.pill').classes()).toContain('pill--danger')
   })
 
+  it('ô tìm giới hạn độ dài theo meta.limits', async () => {
+    accountService.list.mockResolvedValue(page([]))
+    const { wrapper } = await setup()
+    expect(wrapper.find('input[type="search"]').attributes('maxlength')).toBe('100')
+  })
+
   it('tab vai trò lấy nhãn từ backend', async () => {
     accountService.list.mockResolvedValue(page([]))
     const { wrapper } = await setup()
@@ -57,7 +63,7 @@ describe('AccountListView', () => {
     const { wrapper } = await setup('/staff/accounts?role=SHIPPER')
     expect(accountService.list).toHaveBeenLastCalledWith({ role: 'SHIPPER', isActive: undefined, q: undefined, page: 1 })
     expect(wrapper.find('h1').text()).toBe('Quản lý Shipper')
-    const add = wrapper.find('.page__header a')
+    const add = wrapper.find('.toolbar a')
     expect(add.text()).toBe('Thêm Shipper')
     expect(add.attributes('href')).toBe('/staff/accounts/new?role=SHIPPER')
   })
@@ -92,7 +98,7 @@ describe('AccountListView', () => {
     accountService.list.mockResolvedValue(page([]))
     const { wrapper, router } = await setup('/staff/accounts?role=SHIPPER&q=khong')
     expect(wrapper.text()).toContain('Không có tài khoản phù hợp với bộ lọc.')
-    await wrapper.find('.empty button').trigger('click')
+    await wrapper.find('.empty-state button').trigger('click')
     await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({}))
   })
 

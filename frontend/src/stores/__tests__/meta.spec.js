@@ -34,6 +34,11 @@ describe('store meta', () => {
     expect(meta.isTerminal('REPLACED', 'task_statuses')).toBe(true)
     expect(meta.options('user_roles')).toHaveLength(3)
     expect(meta.limits.max_delivery_attempts).toBe(3)
+    expect(meta.hub).toEqual(CHOICES.hub) // spec 008 D6
+  })
+
+  it('hub: null khi chưa tải (không ném lỗi)', () => {
+    expect(useMetaStore().hub).toBeNull()
   })
 
   it('lỗi tải: lưu error, lần sau tải lại được', async () => {

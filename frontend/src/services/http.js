@@ -10,6 +10,7 @@ export const API_ERROR = Object.freeze({
   NOT_AUTHENTICATED: 'NOT_AUTHENTICATED',
   PASSWORD_CHANGE_REQUIRED: 'PASSWORD_CHANGE_REQUIRED',
   CONFLICT: 'CONFLICT',
+  INVALID_TRANSITION: 'INVALID_TRANSITION',
 })
 
 // Mã lỗi chỉ phát sinh phía client (backend không trả các mã này).

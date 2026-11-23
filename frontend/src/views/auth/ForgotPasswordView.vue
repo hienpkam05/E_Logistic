@@ -2,6 +2,7 @@
 // UC01.3 Quên mật khẩu — phương án Nhân viên hỗ trợ sau xác minh (spec 001 D4, spec 002 D7).
 import { RouterLink } from 'vue-router'
 import { SUPPORT_CONTACT } from '../../config'
+import AuthLayout from '../../layouts/AuthLayout.vue'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
@@ -9,9 +10,9 @@ const contact = SUPPORT_CONTACT || 'Liên hệ Nhân viên HTT Express'
 </script>
 
 <template>
-  <main class="auth-page">
+  <AuthLayout>
     <section class="card auth-card" aria-labelledby="forgot-title">
-      <p class="eyebrow">HTT EXPRESS · HÀ NỘI</p>
+      <p class="eyebrow">Hỗ trợ tài khoản</p>
       <h1 id="forgot-title">Quên mật khẩu</h1>
 
       <p>Hệ thống không tự đặt lại mật khẩu qua email hay tin nhắn. Để lấy lại quyền truy cập:</p>
@@ -28,5 +29,5 @@ const contact = SUPPORT_CONTACT || 'Liên hệ Nhân viên HTT Express'
       </RouterLink>
       <RouterLink v-else :to="{ name: 'login' }" class="auth-card__link">Quay lại đăng nhập</RouterLink>
     </section>
-  </main>
+  </AuthLayout>
 </template>

@@ -3,6 +3,7 @@
 import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import FormField from '../../components/common/FormField.vue'
+import AuthLayout from '../../layouts/AuthLayout.vue'
 import { CHANGE_PASSWORD_ROUTE, safeNext } from '../../router/guard'
 import { homeRouteFor } from '../../router/roles'
 import { useAuthStore } from '../../stores/auth'
@@ -49,10 +50,13 @@ async function onSubmit() {
 </script>
 
 <template>
-  <main class="auth-page">
+  <AuthLayout>
     <section class="card auth-card" aria-labelledby="login-title">
-      <p class="eyebrow">HTT EXPRESS · HÀ NỘI</p>
-      <h1 id="login-title">Đăng nhập</h1>
+      <div>
+        <p class="eyebrow">Chào mừng trở lại</p>
+        <h1 id="login-title">Đăng nhập</h1>
+        <p class="muted auth-card__lead">Dùng tài khoản do HTT EXPRESS cấp.</p>
+      </div>
 
       <p v-if="notice" class="alert alert--info" role="status">{{ notice }}</p>
       <p v-if="message" class="alert alert--danger" role="alert">{{ message }}</p>
@@ -62,12 +66,12 @@ async function onSubmit() {
                    :error="errors.username" :disabled="submitting" />
         <FormField v-model="form.password" label="Mật khẩu" type="password" autocomplete="current-password" required
                    :error="errors.password" :disabled="submitting" />
-        <button type="submit" class="btn btn--primary" :disabled="submitting">
+        <button type="submit" class="btn btn--primary btn--block" :disabled="submitting">
           {{ submitting ? 'Đang đăng nhập…' : 'Đăng nhập' }}
         </button>
       </form>
 
       <RouterLink :to="{ name: 'forgot-password' }" class="auth-card__link">Quên mật khẩu?</RouterLink>
     </section>
-  </main>
+  </AuthLayout>
 </template>

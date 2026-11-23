@@ -79,6 +79,14 @@ Tài khoản demo cho máy local (chỉ chạy khi `DJANGO_DEBUG=True`): 1 super
 python manage.py seed_demo --output .demo-accounts.txt                          # tạo tài khoản còn thiếu
 python manage.py seed_demo --reset --output .demo-accounts.txt                  # đặt lại mật khẩu + trạng thái demo
 python manage.py seed_demo --output .demo-accounts.txt --notifications          # kèm 31 thông báo mẫu
+python manage.py seed_demo --output .demo-accounts.txt --wards                  # kèm 5 phường/xã DEMO (giả)
+```
+
+Danh mục phường/xã Hà Nội: nạp từ CSV chính thức (cột `code,name`, UTF-8) — phường demo tự ngừng dùng:
+
+```powershell
+python manage.py load_wards ..\docs\data\hanoi_wards.csv --dry-run   # xem trước
+python manage.py load_wards ..\docs\data\hanoi_wards.csv
 ```
 
 Kịch bản thử trên trình duyệt: [specs/002-xac-thuc/manual-test.md](specs/002-xac-thuc/manual-test.md).
@@ -141,8 +149,46 @@ npm.cmd run build
 - Khóa/mở khóa: phiên cũ mất ngay và không sống lại khi mở khóa; không khóa được Admin hoạt động cuối cùng.
 - Lịch sử thao tác chỉ thêm, ghi người thực hiện, không chứa mật khẩu. Không có xóa tài khoản.
 
-Chưa có: các chức năng nghiệp vụ vận đơn/điều phối (spec 004–011).
+Đã xong [spec 004 — Yêu cầu gửi hàng của Shop](specs/004-yeu-cau-gui-hang/spec.md) (chờ thử trình duyệt):
+
+- Shop tạo yêu cầu gửi hàng (người gửi điền sẵn từ hồ sơ, sửa được trên từng đơn), nhận mã yêu cầu `YC…`; mã vận đơn cấp khi Nhân viên duyệt (spec 005).
+- Danh sách đơn của mình: lọc trạng thái, tìm theo mã/người nhận/SĐT, bộ lọc nằm trên URL.
+- Sửa/hủy khi còn Chờ xác nhận; chống ghi đè khi hai nơi cùng sửa (`409`); lịch sử ghi trước/sau, lý do hủy; không xóa bản ghi.
+- Phường/xã Hà Nội lấy từ bảng `Ward`: **hiện là dữ liệu demo** (`seed_demo --wards`). Nạp danh sách chính thức: `python manage.py load_wards <file.csv>` (cột `code,name`, UTF-8; có `--dry-run`).
+
+Đã xong [spec 005 — Duyệt và quản lý vận đơn](specs/005-duyet-van-don/spec.md) (chờ thử trình duyệt):
+
+- Nhân viên xem vận đơn **toàn hệ thống**: tab Chờ xác nhận (cũ nhất trước) / Tất cả, lọc trạng thái, khoảng ngày, tìm theo mã, người nhận hoặc Shop.
+- **Duyệt** (có hộp xác nhận) sinh mã vận đơn `HTT` + ngày + 5 ký tự, chuyển Chờ lấy hàng; **từ chối** bắt buộc lý do. Shop nhận thông báo có nút "Xem vận đơn", thấy lý do từ chối ở chi tiết.
+- Chống xử lý trên dữ liệu cũ (Shop vừa sửa/hủy → 409 + tải bản mới); bấm lại / hai người cùng duyệt vẫn chỉ một mã.
+- Trang chủ Nhân viên có ô "N yêu cầu chờ duyệt".
+
+Đã xong [spec 006 — Lấy hàng và nhập điểm tập kết](specs/006-lay-hang-diem-tap-ket/spec.md) (chờ thử trình duyệt):
+
+- Nhân viên **phân công Shipper lấy hàng** (danh sách Shipper đang hoạt động, ít việc trước, kèm số nhiệm vụ đang mở); mỗi đơn tối đa một nhiệm vụ đang mở (chặn cả ở database).
+- **Shipper** (giao diện cho điện thoại): xem nhiệm vụ của mình — chỉ thông tin để đi lấy, không thấy người nhận/COD; "Đã lấy hàng" hoặc "Lấy hàng thất bại" (lý do theo danh mục).
+- Nhân viên **xác nhận tiếp nhận tại điểm tập kết** (ghi người giao/nhận, sai lệch); lấy thất bại thì **lấy lại** hoặc **kết thúc** có lý do.
+- Theo dõi người giữ hàng (Shop → Shipper → Điểm tập kết); thông báo đúng người; khóa Shipper còn nhiệm vụ → đánh dấu + báo Nhân viên.
+
+Đã xong [spec 007 — Giao hàng, COD, giao lại](specs/007-giao-hang-cod/spec.md) (chờ thử trình duyệt) — **đạt cột mốc demo "giao thành công"**:
+
+- Nhân viên **phân công giao** đơn đã nhập điểm tập kết (xác nhận Shipper đã nhận hàng); phân công không tăng số lần giao.
+- **Shipper** xem nhiệm vụ giao (người nhận, địa chỉ, COD, lần N/3), **giao thành công** phải tự gõ số tiền đã thu đúng bằng COD (lệch thì báo thiếu/thừa bao nhiêu, không lưu gì), hoặc **giao thất bại** có lý do.
+- Nhân viên **giao lại** (tối đa 3 lần giao, giao lại chỉ bằng Shipper đang giữ hàng) hoặc **chuyển hoàn** (hoàn sớm được; đủ 3 lần thì chỉ còn hoàn).
+- Shop thấy đơn **Đã giao** kèm thời gian và **COD đã thu**; mọi bước có thông báo đúng người. Bấm lại không cộng tiền, không tăng lần.
+
+Đã xong [spec 008 — Hoàn hàng](specs/008-hoan-hang/spec.md) (chờ thử trình duyệt):
+
+- Nhân viên **phân công hoàn** cho Shipper đang giữ hàng; Shipper thấy nhiệm vụ hoàn (điểm tập kết, lý do hoàn — không người nhận / COD) và bấm **"Đã đưa hàng về điểm tập kết"**.
+- Nhân viên **tiếp nhận hàng hoàn** (ghi sai lệch nếu có; tiếp nhận được cả khi Shipper chưa báo) → **Chờ Shop đến lấy**, Shop nhận thông báo kèm địa chỉ điểm tập kết.
+- Nhân viên **xác nhận Shop đã nhận** (tên người nhận + đã kiểm tra người nhận thuộc Shop) → **Đã hoàn về Shop**.
+- Màn Nhân viên gộp tab theo giai đoạn (Chờ xác nhận · Lấy hàng · Giao hàng · Hoàn hàng · Tất cả) kèm chip trạng thái.
+- Điểm tập kết cấu hình trong `backend/.env`: `HUB_NAME`, `HUB_ADDRESS`, `HUB_PHONE` (xem `backend/.env.example`).
+
+Chưa có: đổi Shipper, tra cứu, GPS (spec 009–011).
 
 Chi tiết ranh giới module: [docs/architecture.md](docs/architecture.md).
+
+Giao diện: thanh bên + thanh trên, font Be Vietnam Pro, icon Lucide, bảng tự thành thẻ trên điện thoại. Khuôn màn hình, biến màu, thành phần dùng chung: [docs/design-system.md](docs/design-system.md).
 
 Tham khảo: [Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/releases/5.2/), [Vite](https://vite.dev/guide/), [Vue](https://vuejs.org/guide/quick-start).

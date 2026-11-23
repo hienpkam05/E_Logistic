@@ -2,8 +2,10 @@
 // Thông báo nội bộ: danh sách, lọc chưa đọc, đánh dấu đã đọc (checklist mục 3).
 // Bộ lọc và trang nằm trên URL (?unread=true&page=2) để Back/tải lại giữ nguyên chỗ đang xem.
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import PaginationBar from '../../components/common/PaginationBar.vue'
+import { notificationLinkFor } from '../../router/roles'
+import { useAuthStore } from '../../stores/auth'
 import * as notificationService from '../../services/notificationService'
 import { useMetaStore } from '../../stores/meta'
 import { useNotificationStore } from '../../stores/notifications'
@@ -13,6 +15,10 @@ const route = useRoute()
 const router = useRouter()
 const meta = useMetaStore()
 const store = useNotificationStore()
+const auth = useAuthStore()
+
+// Thông báo gắn vận đơn / nhiệm vụ → liên kết tới đúng màn của vai trò đang xem (spec 005 D6, 006 D8).
+const shipmentLink = (item) => notificationLinkFor(auth.role, item.payload)
 
 const items = ref([])
 const total = ref(0)
@@ -109,7 +115,7 @@ watch(() => [route.query.unread, route.query.page], () => {
 
     <p v-if="actionError" class="alert alert--danger" role="alert">{{ actionError }}</p>
 
-    <p v-if="loading" class="muted" role="status">Đang tải thông báo…</p>
+    <p v-if="loading" class="loading" role="status"><span class="spinner" />Đang tải thông báo…</p>
 
     <div v-else-if="loadError" class="alert alert--danger" role="alert">
       <p class="alert__text">{{ loadError }}</p>
@@ -131,6 +137,8 @@ watch(() => [route.query.unread, route.query.page], () => {
             <strong class="notification__title">{{ item.title }}</strong>
             <span v-if="item.body" class="notification__body">{{ item.body }}</span>
           </button>
+          <RouterLink v-if="shipmentLink(item)" :to="shipmentLink(item)" class="notification__link"
+                      @click="open(item)">Xem vận đơn →</RouterLink>
         </li>
       </ul>
 
@@ -141,23 +149,17 @@ watch(() => [route.query.unread, route.query.page], () => {
 </template>
 
 <style scoped>
-.page__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.page__header h1 { margin: 0; }
-.tabs { display: flex; gap: 8px; }
-.tabs__item {
-  font: inherit; cursor: pointer; padding: 6px 14px; border-radius: 999px;
-  border: 1px solid var(--border); background: white; color: var(--text);
-}
-.tabs__item[aria-pressed='true'] { border-color: var(--brand); color: var(--brand); font-weight: 600; }
 .notification-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .notification {
   width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
   display: flex; flex-direction: column; gap: 4px; padding: 14px 16px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
 }
-.notification--unread { border-left: 4px solid var(--brand); background: #f6fbf9; }
+.notification--unread { border-left: 4px solid var(--brand); background: var(--brand-softer); }
 .notification:not(.notification--unread) { cursor: default; }
-.notification:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.notification:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .notification__meta { display: flex; justify-content: space-between; gap: 12px; font-size: .8125rem; color: var(--muted); }
 .notification__body { color: var(--muted); }
+.notification-list > li { display: flex; flex-direction: column; gap: 4px; }
+.notification__link { align-self: flex-end; font-size: .875rem; font-weight: 600; }
 </style>

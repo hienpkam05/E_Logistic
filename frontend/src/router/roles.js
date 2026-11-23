@@ -15,13 +15,45 @@ export const ROLE_HOME = Object.freeze({
   [ROLES.SHIPPER]: 'shipper-home',
 })
 
-// Mục menu riêng theo vai trò (thanh trên của AppLayout). Thêm mục cho vai trò khác ở spec sau.
+// Mục menu riêng theo vai trò (thanh bên của AppLayout). `icon`: tên trong components/common/AppIcon.vue.
+// Thêm mục cho vai trò khác ở spec sau.
 export const ROLE_MENU = Object.freeze({
+  [ROLES.SHOP]: [
+    { label: 'Vận đơn của tôi', to: { name: 'shop-shipments' }, icon: 'package' },
+    { label: 'Tạo yêu cầu gửi hàng', to: { name: 'shop-shipment-new' }, icon: 'package-plus' },
+  ],
   [ROLES.ADMIN]: [
-    { label: 'Quản lý tài khoản', to: { name: 'staff-accounts' } },
-    { label: 'Quản lý Shipper', to: { name: 'staff-accounts', query: { role: ROLES.SHIPPER } } },
+    { label: 'Quản lý vận đơn', to: { name: 'staff-shipments' }, icon: 'clipboard' },
+    { label: 'Quản lý tài khoản', to: { name: 'staff-accounts' }, icon: 'users' },
+    { label: 'Quản lý Shipper', to: { name: 'staff-accounts', query: { role: ROLES.SHIPPER } }, icon: 'truck' },
+  ],
+  [ROLES.SHIPPER]: [
+    { label: 'Nhiệm vụ', to: { name: 'shipper-tasks' }, icon: 'package' }, // lấy + giao (spec 007 D11)
   ],
 })
+
+// Vai trò -> route chi tiết vận đơn (thông báo "Xem vận đơn" mở đúng màn của người xem). Shipper: spec 006.
+export const ROLE_SHIPMENT_DETAIL = Object.freeze({
+  [ROLES.SHOP]: 'shop-shipment-detail',
+  [ROLES.ADMIN]: 'staff-shipment-detail',
+})
+
+/** Route chi tiết vận đơn cho vai trò, hoặc null nếu vai trò chưa có màn xem vận đơn. */
+export function shipmentRouteFor(role, id) {
+  const name = ROLE_SHIPMENT_DETAIL[role]
+  return name && id ? { name, params: { id: String(id) } } : null
+}
+
+/**
+ * Liên kết "Xem" của một thông báo theo vai trò người xem (spec 005 D6, 006 D8).
+ * Shipper làm việc theo NHIỆM VỤ (payload.task_id) — không có màn vận đơn; vai trò khác mở chi tiết vận đơn.
+ */
+export function notificationLinkFor(role, payload = {}) {
+  if (role === ROLES.SHIPPER) {
+    return payload?.task_id ? { name: 'shipper-task-detail', params: { id: String(payload.task_id) } } : null
+  }
+  return shipmentRouteFor(role, payload?.shipment_id)
+}
 
 export function menuFor(role) {
   return ROLE_MENU[role] ?? []

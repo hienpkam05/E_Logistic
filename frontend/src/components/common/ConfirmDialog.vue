@@ -65,12 +65,12 @@ watch(() => props.open, async (value) => {
 
 <style scoped>
 .confirm-dialog {
-  width: min(460px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border);
-  border-radius: var(--radius); color: var(--text);
+  width: min(480px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border);
+  border-radius: var(--radius-lg); color: var(--text); box-shadow: var(--shadow-lg);
 }
-.confirm-dialog::backdrop { background: rgb(23 45 61 / 45%); }
+.confirm-dialog::backdrop { background: rgb(16 24 40 / 50%); backdrop-filter: blur(2px); }
 .confirm-dialog__body { display: flex; flex-direction: column; gap: 16px; padding: 24px; }
-.confirm-dialog__body h2 { margin: 0; }
+.confirm-dialog__body h2 { margin: 0; font-size: 1.125rem; }
 .confirm-dialog__content { display: flex; flex-direction: column; gap: 12px; line-height: 1.6; }
 .confirm-dialog__actions { justify-content: flex-end; }
 </style>

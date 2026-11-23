@@ -136,6 +136,7 @@ Mỗi enum định nghĩa **một lần** trong `constants.py` của app sở h�
 | Hành động | Từ | Sang | Vai trò | UC | Điều kiện thêm (kiểm tra trong service) |
 |---|---|---|---|---|---|
 | `CREATE_REQUEST` | — | `PENDING_APPROVAL` | SHOP | 05.2 | |
+| `UPDATE_REQUEST` | `PENDING_APPROVAL` | `PENDING_APPROVAL` | SHOP | 05.1 | Chủ sở hữu; thêm ở spec 004 (vòng về chính nó) |
 | `CANCEL_REQUEST` | `PENDING_APPROVAL` | `CANCELLED` | SHOP | 05.5 | Chủ sở hữu |
 | `REJECT_REQUEST` | `PENDING_APPROVAL` | `REJECTED` | ADMIN | 05.8 | Lý do bắt buộc |
 | `APPROVE_REQUEST` | `PENDING_APPROVAL` | `AWAITING_PICKUP` | ADMIN | 05.6 | Sinh mã vận đơn |
@@ -154,7 +155,7 @@ Mỗi enum định nghĩa **một lần** trong `constants.py` của app sở h�
 | `RECEIVE_RETURN` | `RETURNING`, `AWAITING_RETURN` | `AWAITING_SHOP_PICKUP` | ADMIN | 04.9, 06.7 A1.2 | Từ `AWAITING_RETURN` chỉ khi hàng đã ở `HUB` |
 | `CONFIRM_SHOP_RECEIVED` | `AWAITING_SHOP_PICKUP` | `RETURNED_TO_SHOP` | ADMIN | 04.11 | |
 
-- Sửa yêu cầu (UC05.1) không đổi trạng thái — chỉ cho phép khi `PENDING_APPROVAL`, không nằm trong bảng.
+- Sửa yêu cầu (UC05.1) không đổi trạng thái — chỉ cho phép khi `PENDING_APPROVAL`. **Cập nhật spec 004:** thêm vào bảng dạng vòng về chính nó `UPDATE_REQUEST: PENDING_APPROVAL → PENDING_APPROVAL (SHOP)` để sửa cũng đi qua `resolve_transition`; bảng nay khớp đủ checklist mục 4.
 - Đổi Shipper (UC06.8) **không đổi trạng thái vận đơn**; chỉ đổi trạng thái nhiệm vụ (bảng dưới).
 - Trạng thái kết thúc không có hành động đi ra.
 
@@ -242,6 +243,8 @@ Trong `apps/core`, `AllowAny` (không chứa dữ liệu nhạy cảm). Trả:
   "limits": {"max_delivery_attempts": 3, "cod_max_vnd": 50000000}
 }
 ```
+
+(Spec 004 thêm vào `limits`: `package_count_min/max`, `weight_grams_max`, `search_query_max_length`, `cancel_reason_max_length` — xem [004 api.md](../004-yeu-cau-gui-hang/api.md).)
 
 Sinh tự động từ các `TextChoices` và hằng số — không viết tay danh sách trong view.
 

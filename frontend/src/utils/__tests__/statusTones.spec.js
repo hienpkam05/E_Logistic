@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { STATUS_TONES, TONES, toneOf } from '../statusTones'
+import { SHIPMENT_STATUS, STATUS_TONES, TONES, toneOf } from '../statusTones'
 
 // Đối chiếu với mã trạng thái thật ở backend (đọc thẳng constants.py, không chạy backend).
 // Vitest chạy từ thư mục frontend/.
@@ -22,6 +22,13 @@ describe('statusTones', () => {
     expect(codes.length).toBeGreaterThan(3)
     expect(Object.keys(STATUS_TONES[group]).sort()).toEqual([...codes].sort())
     expect(Object.values(STATUS_TONES[group]).every((tone) => TONES.includes(tone))).toBe(true)
+  })
+
+  it('SHIPMENT_STATUS chỉ chứa mã trạng thái thật (key = value)', () => {
+    for (const [key, value] of Object.entries(SHIPMENT_STATUS)) {
+      expect(key).toBe(value)
+      expect(Object.keys(STATUS_TONES.shipment_statuses)).toContain(value)
+    }
   })
 
   it('mã lạ -> neutral', () => {

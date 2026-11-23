@@ -32,6 +32,24 @@ export const STATUS_TONES = {
   },
 }
 
+// Mã trạng thái vận đơn mà giao diện cần so sánh trực tiếp (tab Chờ xác nhận của Nhân viên — spec 005).
+// Test bắt buộc mọi giá trị ở đây là key của STATUS_TONES.shipment_statuses (đã đối chiếu backend).
+export const SHIPMENT_STATUS = Object.freeze({
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  // Tab hàng việc của Nhân viên (spec 006 D10)
+  AWAITING_PICKUP: 'AWAITING_PICKUP',
+  PICKUP_FAILED: 'PICKUP_FAILED',
+  PICKED_UP: 'PICKED_UP',
+  // … và spec 007 D11
+  AT_HUB: 'AT_HUB',
+  AWAITING_REDELIVERY: 'AWAITING_REDELIVERY',
+  DELIVERY_FAILED: 'DELIVERY_FAILED',
+  // … và spec 008 (giai đoạn Hoàn hàng)
+  AWAITING_RETURN: 'AWAITING_RETURN',
+  RETURNING: 'RETURNING',
+  AWAITING_SHOP_PICKUP: 'AWAITING_SHOP_PICKUP',
+})
+
 export function toneOf(group, value) {
   return STATUS_TONES[group]?.[value] ?? 'neutral'
 }

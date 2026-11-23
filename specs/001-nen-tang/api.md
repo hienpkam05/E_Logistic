@@ -111,7 +111,7 @@ Response `200`:
 }
 ```
 
-(Ví dụ rút gọn; response thật chứa đủ giá trị của từng enum theo [models.md](models.md#enum).)
+(Ví dụ rút gọn; response thật chứa đủ giá trị của từng enum theo [models.md](models.md#enum). `limits` được các spec sau bổ sung — spec 004 thêm `package_count_min/max`, `weight_grams_max`, `search_query_max_length`, `cancel_reason_max_length`.)
 
 | Nhóm | Nguồn |
 |---|---|

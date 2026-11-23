@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../services/http'
 import * as notificationService from '../../services/notificationService'
+import { useAuthStore } from '../../stores/auth'
 import { useMetaStore } from '../../stores/meta'
 import { useNotificationStore } from '../../stores/notifications'
 import { CHOICES } from '../../test-utils'
@@ -117,5 +118,31 @@ describe('NotificationsView', () => {
     notificationService.list.mockResolvedValue(page([]))
     await setup('/notifications?page=abc')
     expect(notificationService.list).toHaveBeenLastCalledWith({ unread: undefined, page: 1 })
+  })
+
+  it('thông báo gắn vận đơn: "Xem vận đơn" mở đúng màn theo vai trò; bấm cũng đánh dấu đã đọc (spec 005 D6)', async () => {
+    const withShipment = { ...note(1), payload: { shipment_id: 12 } }
+    for (const [role, href] of [['SHOP', '/shop/shipments/12'], ['ADMIN', '/staff/shipments/12'], ['SHIPPER', null]]) {
+      notificationService.list.mockResolvedValue(page([withShipment, note(2)]))
+      const { wrapper } = await setup()
+      useAuthStore().setUser({ id: 9, username: 'u', full_name: 'U', role, must_change_password: false })
+      await flush()
+      const links = wrapper.findAll('.notification__link')
+      if (href === null) {
+        expect(links).toHaveLength(0) // Shipper chưa có màn vận đơn (spec 006)
+      } else {
+        expect(links).toHaveLength(1) // thông báo không gắn vận đơn thì không có liên kết
+        expect(links[0].attributes('href')).toBe(href)
+      }
+      document.body.innerHTML = ''
+    }
+    notificationService.list.mockResolvedValue(page([withShipment]))
+    notificationService.markRead.mockResolvedValue({ ...withShipment, is_read: true })
+    const { wrapper } = await setup()
+    useAuthStore().setUser({ id: 9, username: 'u', full_name: 'U', role: 'SHOP', must_change_password: false })
+    await flush()
+    await wrapper.find('.notification__link').trigger('click')
+    await flush()
+    expect(notificationService.markRead).toHaveBeenCalledWith(1)
   })
 })

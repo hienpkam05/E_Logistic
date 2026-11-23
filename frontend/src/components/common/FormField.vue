@@ -11,8 +11,11 @@ const props = defineProps({
   required: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
   multiline: { type: Boolean, default: false },
+  // Độ dài tối đa — lấy từ meta.limits, không viết số ở màn hình.
+  maxlength: { type: Number, default: undefined },
 })
-const model = defineModel({ type: String, default: '' })
+// Vue tự đổi giá trị <input type="number"> thành Number khi gõ — nhận cả hai kiểu.
+const model = defineModel({ type: [String, Number], default: '' })
 
 const id = useId()
 const describedBy = computed(() =>
@@ -28,6 +31,7 @@ const describedBy = computed(() =>
       :id="id"
       v-model="model"
       rows="2"
+      :maxlength="maxlength"
       :required="required"
       :disabled="disabled"
       :aria-invalid="error ? 'true' : undefined"
@@ -39,6 +43,7 @@ const describedBy = computed(() =>
       v-model="model"
       :type="type"
       :autocomplete="autocomplete"
+      :maxlength="maxlength"
       :required="required"
       :disabled="disabled"
       :aria-invalid="error ? 'true' : undefined"

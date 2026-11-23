@@ -2,6 +2,14 @@
 
 Dùng cho bước 7.3 ở [tasks.md](tasks.md). Mỗi bước ghi **Làm** và **Mong đợi**; đánh `[x]` khi đúng, ghi lỗi vào cột cuối bảng tổng kết.
 
+
+> **Giao diện mới (21/11/2026):**
+> - Menu chức năng nằm ở **thanh bên trái**; điện thoại bấm ☰ để mở.
+> - Chuông thông báo ở góc phải thanh trên.
+> - "Thông tin cá nhân", "Đổi mật khẩu", "Đăng xuất" nằm trong **menu avatar**: bấm vào tên/ảnh đại diện ở góc phải.
+>
+> Các bước ghi "bấm Đăng xuất" nghĩa là mở menu avatar rồi bấm.
+
 ## Chuẩn bị (một lần)
 
 1. Docker Desktop đang chạy, database: `docker compose --env-file backend/.env up -d db`
@@ -26,7 +34,7 @@ Sau khi thử xong mục C (đổi mật khẩu `demo_mktam`) hoặc E (đổi m
 ## A. Đăng nhập (UC01.1)
 
 - [ ] **A1** Làm: mở `http://127.0.0.1:5173/`. Mong đợi: chuyển sang trang Đăng nhập.
-- [ ] **A2** Làm: đăng nhập `demo_shop`. Mong đợi: vào `/shop`, thanh trên có "Shop Demo Hoàn Kiếm", nhãn "Shop", chuông có số **25**.
+- [ ] **A2** Làm: đăng nhập `demo_shop`. Mong đợi: vào `/shop`, góc phải thanh trên có "Shop Demo Hoàn Kiếm", nhãn "Shop", chuông có số **25**.
 - [ ] **A3** Làm: gõ thẳng `http://127.0.0.1:5173/login` khi đang đăng nhập. Mong đợi: tự về `/shop` (A1 — đã có phiên).
 - [ ] **A4** Làm: gõ `http://127.0.0.1:5173/staff`. Mong đợi: bị đưa về `/shop` (sai vai trò).
 - [ ] **A5** Làm: đăng xuất; đăng nhập `demo_shop` với mật khẩu sai. Mong đợi: thông báo đỏ "Tên đăng nhập hoặc mật khẩu không đúng, hoặc tài khoản không thể đăng nhập…", ô mật khẩu bị xóa, vẫn ở trang Đăng nhập.
@@ -44,7 +52,7 @@ Sau khi thử xong mục C (đổi mật khẩu `demo_mktam`) hoặc E (đổi m
 
 ## C. Mật khẩu tạm (UC01.3 + D5)
 
-- [ ] **C1** Làm: đăng nhập `demo_mktam`. Mong đợi: vào thẳng trang Đổi mật khẩu, có cảnh báo vàng "Bạn đang dùng mật khẩu tạm…", thanh trên **chỉ còn** nút Đăng xuất.
+- [ ] **C1** Làm: đăng nhập `demo_mktam`. Mong đợi: vào thẳng trang Đổi mật khẩu, có cảnh báo vàng "Bạn đang dùng mật khẩu tạm…", thanh bên không có menu, không có chuông; menu avatar **chỉ còn** Đăng xuất.
 - [ ] **C2** Làm: gõ `http://127.0.0.1:5173/account/profile`. Mong đợi: bị đưa lại trang Đổi mật khẩu.
 - [ ] **C3** Làm: đổi mật khẩu (mật khẩu hiện tại = mật khẩu trong file, mật khẩu mới ≥ 8 ký tự). Mong đợi: vào `/shop`, menu đầy đủ trở lại.
 - [ ] **C4** Làm: đăng xuất, đăng nhập lại `demo_mktam` bằng mật khẩu **mới**. Mong đợi: vào thẳng `/shop`, không bị buộc đổi nữa.

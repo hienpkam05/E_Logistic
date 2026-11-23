@@ -10,11 +10,17 @@ const ROUTE_NAMES = [
   ['/shop', 'shop-home'], ['/staff', 'staff-home'], ['/shipper', 'shipper-home'],
   ['/staff/accounts', 'staff-accounts'], ['/staff/accounts/new', 'staff-account-new'],
   ['/staff/accounts/:id', 'staff-account-detail'],
+  ['/shop/shipments', 'shop-shipments'], ['/shop/shipments/new', 'shop-shipment-new'],
+  ['/shop/shipments/:id', 'shop-shipment-detail'],
+  ['/staff/shipments', 'staff-shipments'], ['/staff/shipments/:id', 'staff-shipment-detail'],
+  ['/shipper/tasks', 'shipper-tasks'], ['/shipper/tasks/:id', 'shipper-task-detail'],
 ]
 
-export async function mountView(component, { path = '/', props = {} } = {}) {
+// beforeMount(pinia): chuẩn bị store trước khi component khởi tạo (vd user đã đăng nhập).
+export async function mountView(component, { path = '/', props = {}, beforeMount } = {}) {
   const pinia = createPinia()
   setActivePinia(pinia)
+  beforeMount?.(pinia)
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/', component: Blank }, ...ROUTE_NAMES.map(([p, name]) => ({ path: p, name, component: Blank }))],

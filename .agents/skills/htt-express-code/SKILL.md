@@ -15,6 +15,7 @@ description: Triển khai hoặc sửa code HTT EXPRESS (Django REST Framework, 
 | `docs/HTT_EXPRESS_Actor_vai_tro_phan_quyen.md` | Vai trò, ma trận quyền theo UC, 14 quy tắc backend, tình huống kiểm thử quyền |
 | `docs/HTT_EXPRESS_Checklist_chuc_nang.md` | Tiêu chí nghiệm thu từng UC, **bảng luồng trạng thái**, quy tắc đổi Shipper, kịch bản demo |
 | `docs/architecture.md` | Ranh giới app backend, cấu trúc frontend, quy ước triển khai |
+| `docs/design-system.md` | Hệ thống thiết kế giao diện: biến màu, khung thanh bên/thanh trên, **khuôn trang danh sách/chi tiết/form**, icon, quy tắc bảng trên điện thoại |
 | `specs/` | Spec theo phần việc: `specs/README.md` (lộ trình, quy ước) và `specs/NNN-ten/{spec,tasks,models,api}.md`. Spec chưa có thì dùng các file docs ở trên làm nguồn chính |
 | `docs/img/` | Ảnh luồng minh họa; khi khác Markdown thì **Markdown đã chốt thắng** |
 
@@ -111,6 +112,7 @@ Thứ tự lựa chọn: dùng trực tiếp phần hiện có → mở rộng t
 - Một API client duy nhất xử lý base URL, xác thực (session + CSRF), lỗi chung. Lời gọi endpoint gom theo nghiệp vụ trong `services/`; component không gọi `fetch` trực tiếp. Không thêm thư viện HTTP nếu chưa cần.
 - Composable cho logic phản ứng lặp lại; Pinia cho trạng thái chia sẻ; trạng thái riêng giữ cục bộ. Không sao chép cùng dữ liệu server vào nhiều store.
 - Dùng lại biến CSS, spacing, typography, formatter hiện có. Không thêm framework UI thứ hai khi chưa có nhu cầu.
+- Màn hình mới theo khuôn trong `docs/design-system.md` (danh sách: `.toolbar` + `.data-card`; chi tiết: `.detail-header` + `.detail-layout`; form: `.card` + `.form-grid`). Icon qua `AppIcon` (tên dạng chuỗi), không viết mã màu hex trong component; mỗi `<td>` của `.table--stack` có `data-label`.
 - Sau mutation, tải lại/cập nhật dữ liệu liên quan nhất quán; tránh gọi lặp do nhiều watcher/lifecycle.
 - Danh sách lớn phân trang và lọc từ server.
 - Ẩn nút chỉ hỗ trợ sử dụng; backend vẫn phải chặn.

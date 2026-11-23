@@ -2,6 +2,7 @@
 // UC02.4 / UC06.3 / UC06.4 / UC01.3 A1 — chi tiết tài khoản: sửa, khóa/mở khóa, đặt lại mật khẩu, lịch sử.
 import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, useRoute } from 'vue-router'
+import AppIcon from '../../components/common/AppIcon.vue'
 import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
 import FormField from '../../components/common/FormField.vue'
 import OneTimeSecret from '../../components/common/OneTimeSecret.vue'
@@ -12,7 +13,7 @@ import { API_ERROR } from '../../services/http'
 import { useAuthStore } from '../../stores/auth'
 import { useMetaStore } from '../../stores/meta'
 import { accountStatus } from '../../utils/accountStatus'
-import { formatDateTime, formatPhone } from '../../utils/format'
+import { formatDateTime, formatPhone, initials } from '../../utils/format'
 import { fieldErrors, generalMessage } from '../../utils/formErrors'
 
 const route = useRoute()
@@ -209,10 +210,12 @@ watch(id, () => {
 </script>
 
 <template>
-  <section class="page page--narrow" aria-labelledby="account-title">
-    <RouterLink :to="{ name: 'staff-accounts' }">← Danh sách tài khoản</RouterLink>
+  <section class="page" aria-labelledby="account-title">
+    <RouterLink :to="{ name: 'staff-accounts' }" class="back-link">
+      <AppIcon name="arrow-left" :size="16" />Danh sách tài khoản
+    </RouterLink>
 
-    <p v-if="loading" class="muted" role="status">Đang tải tài khoản…</p>
+    <p v-if="loading" class="loading" role="status"><span class="spinner" />Đang tải tài khoản…</p>
 
     <div v-else-if="notFound" class="card">
       <h1 id="account-title">Không tìm thấy tài khoản</h1>
@@ -225,10 +228,18 @@ watch(id, () => {
     </div>
 
     <template v-else-if="account">
-      <div class="title-row">
-        <h1 id="account-title">{{ account.full_name || account.username }}</h1>
-        <span class="pill" :class="`pill--${status.tone}`">{{ status.label }}</span>
-      </div>
+      <header class="detail-header">
+        <div class="title-row">
+          <span class="avatar-lg" aria-hidden="true">{{ initials(account.full_name || account.username) }}</span>
+          <div>
+            <div class="title-row">
+              <h1 id="account-title">{{ account.full_name || account.username }}</h1>
+              <span class="pill" :class="`pill--${status.tone}`">{{ status.label }}</span>
+            </div>
+            <p class="muted">@{{ account.username }} · {{ meta.label('user_roles', account.role) }}</p>
+          </div>
+        </div>
+      </header>
 
       <p v-if="isSelf" class="alert alert--info">
         Đây là tài khoản của bạn. Dùng <RouterLink :to="{ name: 'profile' }">Thông tin cá nhân</RouterLink> và
@@ -239,15 +250,17 @@ watch(id, () => {
       <OneTimeSecret v-if="tempPassword" :secret="tempPassword" :username="account.username" label="Mật khẩu tạm mới"
                      @done="tempPassword = ''" />
 
+      <div class="detail-layout">
       <!-- Xem -->
       <div v-if="!editing" class="card">
+        <h2 class="card__title"><span class="card__title-icon"><AppIcon name="user" /></span>Thông tin tài khoản</h2>
         <dl class="details">
           <template v-for="[label, value] in rows" :key="label">
             <dt>{{ label }}</dt>
             <dd :class="{ muted: value === NOT_SET }">{{ value }}</dd>
           </template>
         </dl>
-        <div v-if="!isSelf" class="form__actions">
+        <div v-if="!isSelf" class="form__actions card__actions">
           <button type="button" class="btn btn--primary" @click="startEdit">Chỉnh sửa</button>
           <button v-if="account.is_active" type="button" class="btn btn--ghost" @click="openDialog('lock')">Khóa tài khoản</button>
           <button v-else type="button" class="btn btn--ghost" @click="openDialog('unlock')">Mở khóa</button>
@@ -275,7 +288,7 @@ watch(id, () => {
 
       <!-- Lịch sử -->
       <section class="card" aria-labelledby="events-title">
-        <h2 id="events-title">Lịch sử thao tác</h2>
+        <h2 id="events-title" class="card__title"><span class="card__title-icon"><AppIcon name="clock" /></span>Lịch sử thao tác</h2>
         <p v-if="eventsError" class="alert alert--danger" role="alert">{{ eventsError }}</p>
         <p v-else-if="!events.length" class="muted">Chưa có thao tác nào.</p>
         <ol v-else class="events">
@@ -293,6 +306,7 @@ watch(id, () => {
         <PaginationBar :page="eventsPage" :has-previous="eventsPrev" :has-next="eventsNext" :total="eventsTotal"
                        unit="thao tác" @change="loadEvents" />
       </section>
+      </div>
 
       <!-- Hộp xác nhận -->
       <ConfirmDialog :open="dialog === 'lock'" title="Khóa tài khoản?" confirm-label="Khóa" tone="danger"
@@ -324,15 +338,3 @@ watch(id, () => {
   </section>
 </template>
 
-<style scoped>
-.title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.title-row h1 { margin: 0; }
-.events { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-.events__item { display: flex; flex-direction: column; gap: 2px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-.events__item:last-child { border-bottom: none; }
-.events__head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.events__head time { color: var(--muted); font-size: .8125rem; }
-.events__changes { margin: 4px 0 0; padding-left: 18px; }
-.checkbox { display: flex; gap: 10px; align-items: flex-start; line-height: 1.5; cursor: pointer; }
-.checkbox input { margin-top: 4px; }
-</style>

@@ -1,4 +1,5 @@
 // Tiện ích dùng chung cho test Vitest (không đóng gói vào bản build vì chỉ test import).
+import { mount } from '@vue/test-utils'
 import { vi } from 'vitest'
 
 export function jsonResponse(status, body) {
@@ -34,5 +35,24 @@ export const CHOICES = {
     { value: 'PENDING_SWAP_HANDOVER', label: 'Chờ bàn giao đổi Shipper', terminal: false },
     { value: 'REPLACED', label: 'Đã thay thế', terminal: true },
   ],
-  limits: { max_delivery_attempts: 3, cod_max_vnd: 50000000 },
+  limits: {
+    max_delivery_attempts: 3, cod_max_vnd: 50000000, search_query_max_length: 100, cancel_reason_max_length: 500, reject_reason_max_length: 500,
+    task_note_max_length: 500, handover_note_max_length: 500, handover_receiver_name_max_length: 100,
+  },
+  hub: { name: 'Điểm tập kết HTT EXPRESS', address: '1 Tràng Tiền, Hoàn Kiếm', phone: '0241234567' },
+}
+
+// v-model thật: cập nhật prop khi component phát sự kiện (kể cả phát ngay lúc dựng — khi đó wrapper chưa có).
+export function mountWithModel(component, props) {
+  let wrapper = null
+  const pending = []
+  wrapper = mount(component, {
+    props: {
+      modelValue: null,
+      'onUpdate:modelValue': (v) => (wrapper ? wrapper.setProps({ modelValue: v }) : pending.push(v)),
+      ...props,
+    },
+  })
+  if (pending.length) wrapper.setProps({ modelValue: pending.at(-1) })
+  return wrapper
 }

@@ -120,4 +120,5 @@ Bằng chứng: test backend (`test_session_version`, `test_management`, `test_m
 ## 6. Ghi chú cho spec sau
 
 - **Spec 006:** khi phân công kiểm tra `shipper.is_active` + vai trò; đăng ký hook `account_locked` để đánh dấu `Task.needs_attention` và gửi `ACCOUNT_LOCKED_TASKS` cho Nhân viên; bổ sung số nhiệm vụ đang mở vào chi tiết tài khoản Shipper (UC06.4 bước 2).
+  - **Cập nhật 22/11/2026 (spec 006 đã làm):** kiểm Shipper hoạt động khi phân công (khóa dòng user — không đua với khóa tài khoản); hook đăng ký ở `dispatch/apps.py`, `register_account_locked_hook` bỏ qua đăng ký trùng. **Chưa làm:** số nhiệm vụ đang mở trong hộp khóa (UC06.4 bước 2) → chuyển sang spec 009.
 - **Spec 009:** Shipper bị khóa đang giữ hàng → Nhân viên ghi nhận bàn giao thay (UC06.4 BR2).

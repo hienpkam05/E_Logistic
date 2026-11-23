@@ -19,11 +19,11 @@ Quy ước API chung (định dạng lỗi, phân trang, CSRF, gửi lại yêu 
 | [001](001-nen-tang/spec.md) | Nền tảng và mô hình dữ liệu | — (xử lý dùng chung) | `core`, `accounts`, `notifications` | — | Đã triển khai — chờ 2 việc phía người dùng (superuser, xóa `dist/`) |
 | [002](002-xac-thuc/spec.md) | Xác thực, hồ sơ cá nhân, thông báo | 01.1–01.3, 02.1–02.3 | `accounts`, `notifications` | 001 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](002-xac-thuc/manual-test.md)) |
 | [003](003-quan-ly-tai-khoan/spec.md) | Quản lý tài khoản và Shipper | 02.4, 06.1–06.4 | `accounts` | 002 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](003-quan-ly-tai-khoan/manual-test.md)) |
-| 004 | Yêu cầu gửi hàng của Shop | 05.1–05.5 | `shipments` | 002 | Chưa viết |
-| 005 | Duyệt và quản lý vận đơn | 05.6–05.9 | `shipments` | 004 | Chưa viết |
-| 006 | Lấy hàng và nhập điểm tập kết | 06.5, 04.1–04.3, 04.13, 04.10 | `dispatch` | 003, 005 | Chưa viết |
-| 007 | Giao hàng, COD, giao lại | 06.6, 04.4–04.7, 04.12 | `dispatch` | 006 | Chưa viết |
-| 008 | Hoàn hàng | 06.7, 04.8, 04.9, 04.11 | `dispatch` | 007 | Chưa viết |
+| [004](004-yeu-cau-gui-hang/spec.md) | Yêu cầu gửi hàng của Shop | 05.1–05.5 | `shipments` | 002 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](004-yeu-cau-gui-hang/manual-test.md)); phường/xã đang là dữ liệu demo, chờ CSV chính thức |
+| [005](005-duyet-van-don/spec.md) | Duyệt và quản lý vận đơn | 05.6–05.9 | `shipments` | 004 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](005-duyet-van-don/manual-test.md)) |
+| [006](006-lay-hang-diem-tap-ket/spec.md) | Lấy hàng và nhập điểm tập kết | 06.5, 04.1–04.3, 04.13, 04.10 | `dispatch` | 003, 005 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](006-lay-hang-diem-tap-ket/manual-test.md)) |
+| [007](007-giao-hang-cod/spec.md) | Giao hàng, COD, giao lại | 06.6, 04.4–04.7, 04.12 | `dispatch` | 006 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](007-giao-hang-cod/manual-test.md)); **đạt cột mốc demo "giao thành công"** |
+| [008](008-hoan-hang/spec.md) | Hoàn hàng | 06.7, 04.8, 04.9, 04.11 | `dispatch` | 007 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](008-hoan-hang/manual-test.md)) |
 | 009 | Đổi Shipper / phân công lại | 06.8 | `dispatch` | 006–008 | Chưa viết |
 | 010 | Tra cứu và lịch sử vận chuyển | 03.1–03.2 | `tracking` | 005 | Chưa viết |
 | 011 | GPS và bản đồ ("Nên có") | 03.3–03.5 | `tracking` | 006–009 | Chưa viết |
