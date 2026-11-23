@@ -180,8 +180,10 @@ def register_account_locked_hook(func):
     """Đăng ký hàm chạy khi khóa tài khoản, nhận (actor, user) — spec 006: đánh dấu nhiệm vụ mở cần xử lý.
 
     Chạy TRONG transaction khóa tài khoản: hook lỗi thì việc khóa cũng hủy, để dữ liệu nhất quán.
+    Đăng ký lại cùng hàm (vd AppConfig.ready chạy 2 lần) không làm hook chạy 2 lần.
     """
-    _account_locked_hooks.append(func)
+    if func not in _account_locked_hooks:
+        _account_locked_hooks.append(func)
     return func
 
 

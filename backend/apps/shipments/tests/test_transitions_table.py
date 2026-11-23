@@ -10,10 +10,11 @@ from apps.shipments.constants import ShipmentStatus as S
 
 SHOP, ADMIN, SHIPPER = UserRole.SHOP, UserRole.ADMIN, UserRole.SHIPPER
 
-# Bảng mục 4 docs/HTT_EXPRESS_Checklist_chuc_nang.md (bỏ dòng "Sửa yêu cầu" vì không đổi trạng thái).
+# Bảng mục 4 docs/HTT_EXPRESS_Checklist_chuc_nang.md — đủ mọi dòng (dòng "Sửa yêu cầu" thêm ở spec 004).
 # (trạng thái trước, trạng thái sau, vai trò). None = chưa có.
 CHECKLIST_SECTION_4 = {
     (None, S.PENDING_APPROVAL, SHOP),                     # Tạo yêu cầu
+    (S.PENDING_APPROVAL, S.PENDING_APPROVAL, SHOP),       # Sửa yêu cầu (UC05.1)
     (S.PENDING_APPROVAL, S.CANCELLED, SHOP),              # Hủy yêu cầu
     (S.PENDING_APPROVAL, S.REJECTED, ADMIN),              # Từ chối yêu cầu
     (S.PENDING_APPROVAL, S.AWAITING_PICKUP, ADMIN),       # Duyệt yêu cầu
@@ -33,6 +34,9 @@ CHECKLIST_SECTION_4 = {
     (S.RETURNING, S.AWAITING_SHOP_PICKUP, ADMIN),         # Tiếp nhận hàng hoàn
     (S.AWAITING_RETURN, S.AWAITING_SHOP_PICKUP, ADMIN),   # Tiếp nhận hàng hoàn đã ở điểm tập kết (UC06.7 A1.2)
     (S.AWAITING_SHOP_PICKUP, S.RETURNED_TO_SHOP, ADMIN),  # Shop nhận hàng hoàn
+    # Spec 008 — không đổi trạng thái nhưng cần mốc lịch sử (tiền lệ "Sửa yêu cầu" của spec 004):
+    (S.RETURNING, S.RETURNING, SHIPPER),                  # Shipper báo đã đưa hàng hoàn về (UC04.9 bước 1–3, A1)
+    (S.RETURNING, S.RETURNING, ADMIN),                    # NV ghi sai lệch, chưa nhận (UC04.9 E1)
 }
 
 
@@ -79,12 +83,32 @@ class ShipmentTransitionTableTests(TransitionTableChecks, SimpleTestCase):
         with self.assertRaises(BusinessError):
             resolve_transition(self.table, A.CONFIRM_SHOP_RECEIVED, S.AWAITING_SHOP_PICKUP, SHIPPER)
 
+    def test_shop_actions_while_pending(self):
+        """UC05.4 bước 5: Chờ xác nhận thì Shop có Sửa + Hủy; sau duyệt thì không còn."""
+        self.assertEqual(set(allowed_actions(self.table, S.PENDING_APPROVAL, SHOP)),
+                         {A.UPDATE_REQUEST, A.CANCEL_REQUEST})
+        self.assertEqual(allowed_actions(self.table, S.AWAITING_PICKUP, SHOP), [])
+
+    def test_update_not_allowed_after_approval(self):
+        with self.assertRaises(BusinessError) as ctx:
+            resolve_transition(self.table, A.UPDATE_REQUEST, S.AWAITING_PICKUP, SHOP)
+        self.assertEqual(ctx.exception.code, ErrorCode.INVALID_TRANSITION)
+
     def test_allowed_actions_after_delivery_failed(self):
         self.assertEqual(
             set(allowed_actions(self.table, S.DELIVERY_FAILED, ADMIN)),
             {A.DECIDE_REDELIVERY, A.DECIDE_RETURN},
         )
         self.assertEqual(allowed_actions(self.table, S.DELIVERY_FAILED, SHIPPER), [])
+
+    def test_returning_actions_by_role(self):
+        """Spec 008: Shipper chỉ báo bàn giao, không tự tiếp nhận (UC04.9 BR1); NV tiếp nhận hoặc ghi sai lệch."""
+        self.assertEqual(set(allowed_actions(self.table, S.RETURNING, SHIPPER)), {A.REPORT_RETURN_HANDOVER})
+        self.assertEqual(set(allowed_actions(self.table, S.RETURNING, ADMIN)), {A.RECEIVE_RETURN, A.REPORT_RETURN_ISSUE})
+        self.assertEqual(allowed_actions(self.table, S.RETURNING, SHOP), [])
+        for action in (A.REPORT_RETURN_HANDOVER, A.REPORT_RETURN_ISSUE):
+            with self.subTest(action), self.assertRaises(BusinessError):
+                resolve_transition(self.table, action, S.AWAITING_SHOP_PICKUP, ADMIN)  # chỉ khi Đang hoàn
 
 
 class ShipmentConstantsTests(SimpleTestCase):

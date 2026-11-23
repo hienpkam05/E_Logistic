@@ -123,3 +123,11 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Điểm tập kết duy nhất (spec 006 D6, spec 008 D6): Shipper đưa hàng hoàn về đây, Shop đến nhận lại hàng.
+# Giá trị mặc định chỉ để demo — cấu hình thật trong backend/.env.
+HUB = {
+    "name": os.getenv("HUB_NAME", "Điểm tập kết HTT EXPRESS (demo)"),
+    "address": os.getenv("HUB_ADDRESS", "Số 1 Phố Demo, Phường Demo, Hà Nội"),
+    "phone": os.getenv("HUB_PHONE", "0900000000"),
+}

@@ -86,6 +86,27 @@ class SeedDemoSpecialAccountsTests(TestCase):
         self.assertTrue(User.objects.get(username="demo_shop").check_password(pw(second, "demo_shop")))
         self.assertTrue(User.objects.get(username="demo_khoa").check_password(pw(second, "demo_khoa")))
 
+    def test_demo_wards_clearly_fake_and_repeatable(self):
+        from apps.accounts.management.commands.seed_demo import DEMO_WARDS
+        from apps.shipments.models import Ward
+
+        run("--wards")
+        run("--wards")
+        self.assertEqual(Ward.objects.count(), len(DEMO_WARDS))
+        self.assertTrue(all(name.startswith("[Demo] ") for name in Ward.objects.values_list("name", flat=True)))
+
+    def test_demo_wards_replaced_by_official_list(self):
+        import tempfile
+        from pathlib import Path
+        from apps.shipments.models import Ward
+
+        run("--wards")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "wards.csv"
+            path.write_text("code,name\n00001,Phường Thật\n", encoding="utf-8")
+            call_command("load_wards", str(path), stdout=StringIO())
+        self.assertEqual(list(Ward.objects.filter(is_active=True).values_list("name", flat=True)), ["Phường Thật"])
+
     def test_notifications_seed_is_repeatable(self):
         from apps.accounts.management.commands.seed_demo import DEMO_NOTIFICATION_COUNT
         from apps.notifications.models import Notification

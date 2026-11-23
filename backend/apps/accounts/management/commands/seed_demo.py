@@ -4,6 +4,7 @@
     python manage.py seed_demo --output .demo-accounts.txt
     python manage.py seed_demo --reset              # đặt lại mật khẩu + trạng thái demo của các tài khoản đã có
     python manage.py seed_demo --notifications      # thêm thông báo mẫu để thử danh sách/phân trang
+    python manage.py seed_demo --wards              # thêm phường/xã DEMO (giả) khi chưa có danh sách chính thức
 
 Mật khẩu sinh ngẫu nhiên mỗi lần tạo/đặt lại; tài khoản đã tồn tại không bị ghi đè nếu không có --reset.
 Khi ghi --output vào file đã có, mật khẩu của tài khoản không đổi được giữ lại từ file cũ.
@@ -38,6 +39,12 @@ DEMO_ACCOUNTS = [
      "role": UserRole.SHIPPER, "is_active": False},
 ]
 
+# Phường/xã GIẢ để chạy thử khi chưa có danh sách chính thức (spec 004 D1). Mã DEMO-xx không trùng mã thật.
+DEMO_WARDS = [
+    ("DEMO-01", "Phường A"), ("DEMO-02", "Phường B"), ("DEMO-03", "Phường C"),
+    ("DEMO-04", "Xã D"), ("DEMO-05", "Xã E"),
+]
+
 DEMO_NOTIFICATION_TITLE = "[Demo]"
 # Số thông báo mẫu mỗi tài khoản; demo_shop nhiều hơn một trang (20) để thử phân trang.
 DEMO_NOTIFICATION_COUNT = {"demo_shop": 25, "demo_nhanvien": 3, "demo_shipper": 3}
@@ -69,8 +76,10 @@ class Command(BaseCommand):
                             help="Đặt lại mật khẩu và trạng thái demo (mật khẩu tạm, khóa) của tài khoản đã có.")
         parser.add_argument("--notifications", action="store_true",
                             help="Thêm thông báo mẫu (xóa thông báo mẫu cũ trước).")
+        parser.add_argument("--wards", action="store_true",
+                            help="Thêm phường/xã DEMO (giả, tiền tố [Demo]) khi chưa có danh sách chính thức.")
 
-    def handle(self, *args, output=None, reset=False, notifications=False, **options):
+    def handle(self, *args, output=None, reset=False, notifications=False, wards=False, **options):
         if not settings.DEBUG:
             raise CommandError("seed_demo chỉ chạy khi DJANGO_DEBUG=True (không dùng cho production).")
 
@@ -79,6 +88,7 @@ class Command(BaseCommand):
         with transaction.atomic():
             lines = self._seed(reset, previous)
             created_notes = self._seed_notifications() if notifications else 0
+            created_wards = self._seed_wards() if wards else 0
 
         report = "Tài khoản demo HTT EXPRESS (chỉ dùng local)\n" + "\n".join(lines) + "\n"
         if output:
@@ -89,6 +99,20 @@ class Command(BaseCommand):
             self.stdout.write(report)
         if notifications:
             self.stdout.write(self.style.SUCCESS(f"Đã tạo {created_notes} thông báo mẫu."))
+        if wards:
+            self.stdout.write(self.style.SUCCESS(
+                f"Phường/xã demo: thêm {created_wards}. Đây là dữ liệu GIẢ — thay bằng `load_wards <csv chính thức>`."))
+
+    def _seed_wards(self):
+        """Phường demo rõ ràng là giả (spec 004 D1). Không đụng phường thật đã nạp."""
+        from apps.shipments.constants import DEMO_WARD_PREFIX
+        from apps.shipments.models import Ward
+
+        created = 0
+        for code, name in DEMO_WARDS:
+            _, is_new = Ward.objects.get_or_create(code=code, defaults={"name": f"{DEMO_WARD_PREFIX} {name}"})
+            created += is_new
+        return created
 
     def _seed(self, reset, previous):
         lines = []

@@ -73,7 +73,8 @@ class ExceptionHandlerTests(TestCase):
 
 class ApiNotFoundTests(TestCase):
     def test_unknown_api_path_returns_json_404(self):
-        for url in ("/api/v1/khong-ton-tai/", "/api/v1/shipments/123/", "/api/"):
+        # Đường dẫn chắc chắn không có route (/api/v1/shipments/123/ đã thành route thật ở spec 004).
+        for url in ("/api/v1/khong-ton-tai/", "/api/v1/shipments/khong-co/", "/api/"):
             with self.subTest(url=url):
                 response = self.client.get(url)
                 assert_error(self, response, 404, "NOT_FOUND", fields={})

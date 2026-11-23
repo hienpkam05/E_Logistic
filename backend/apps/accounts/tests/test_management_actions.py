@@ -135,23 +135,25 @@ class LockTests(Base):
 
     def test_hook_runs_inside_transaction(self):
         seen = []
+        saved = list(services._account_locked_hooks)  # giữ hook thật (spec 006) cho các test chạy sau
         services._account_locked_hooks[:] = [lambda actor, user: seen.append((actor.pk, user.pk, user.is_active))]
         try:
             self.post("account-lock", self.shipper.pk)
         finally:
-            services._account_locked_hooks.clear()
+            services._account_locked_hooks[:] = saved
         self.assertEqual(seen, [(self.admin.pk, self.shipper.pk, False)])
 
     def test_failing_hook_rolls_back_lock(self):
         def boom(actor, user):
             raise RuntimeError("spec 006 lỗi")
 
+        saved = list(services._account_locked_hooks)
         services._account_locked_hooks[:] = [boom]
         try:
             with self.assertRaises(RuntimeError):
                 services.lock_account(self.admin, self.shipper.pk)
         finally:
-            services._account_locked_hooks.clear()
+            services._account_locked_hooks[:] = saved
         self.shipper.refresh_from_db()
         self.assertTrue(self.shipper.is_active)
         self.assertEqual(self.shipper.session_version, 0)
@@ -277,3 +279,12 @@ class ConcurrentLastAdminTests(TransactionTestCase):
             t.join(timeout=30)
         self.assertEqual(sorted(results.values()), sorted(["ok", ErrorCode.LIMIT_REACHED]), results)
         self.assertEqual(User.objects.filter(role=UserRole.ADMIN, is_active=True).count(), 1)
+
+
+class RealHooksRegisteredTests(TestCase):
+    """Hook thật của app khác phải còn sau khi các test trên tạm thay danh sách (lỗi đã gặp ở spec 006)."""
+
+    def test_dispatch_hook_registered(self):
+        from apps.dispatch.services import flag_open_tasks_of_locked_shipper
+
+        self.assertIn(flag_open_tasks_of_locked_shipper, services._account_locked_hooks)

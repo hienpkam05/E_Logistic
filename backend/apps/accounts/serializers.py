@@ -4,6 +4,8 @@ from django.core.validators import RegexValidator
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
+from apps.core.constants import SEARCH_QUERY_MAX_LENGTH
+
 from .constants import (
     IDENTITY_NOT_VERIFIED_MESSAGE,
     LOCK_REASON_MAX_LENGTH,
@@ -100,7 +102,7 @@ class ManagedUserSerializer(serializers.ModelSerializer):
 class AccountListQuerySerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=UserRole.choices, required=False)
     is_active = serializers.BooleanField(required=False, default=None, allow_null=True)
-    q = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    q = serializers.CharField(required=False, allow_blank=True, max_length=SEARCH_QUERY_MAX_LENGTH)
 
 
 class AccountCreateSerializer(serializers.ModelSerializer):

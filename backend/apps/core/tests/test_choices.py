@@ -16,7 +16,9 @@ NOT_EXPOSED = {ErrorCode}
 
 EXPECTED_GROUPS = {
     "user_roles", "account_actions", "shipment_statuses", "shipment_actions", "holder_types",
-    "task_types", "task_statuses", "task_actions", "notification_kinds", "limits",
+    "task_types", "task_statuses", "task_actions", "notification_kinds", "pickup_fail_reasons", "handover_kinds",
+    "delivery_fail_reasons",
+    "limits", "hub",  # hub: spec 008 D6 (không phải enum)
 }
 
 
@@ -58,7 +60,12 @@ class ChoicesEndpointTests(TestCase):
         self.assertNotIn("terminal", self.data["user_roles"][0])
 
     def test_limits(self):
-        self.assertEqual(self.data["limits"], {"max_delivery_attempts": MAX_DELIVERY_ATTEMPTS, "cod_max_vnd": COD_MAX_VND})
+        self.assertEqual(self.data["limits"], {
+            "max_delivery_attempts": MAX_DELIVERY_ATTEMPTS, "cod_max_vnd": COD_MAX_VND,
+            "package_count_min": 1, "package_count_max": 99, "weight_grams_max": 100_000,
+            "search_query_max_length": 100, "cancel_reason_max_length": 500, "reject_reason_max_length": 500,
+            "task_note_max_length": 500, "handover_note_max_length": 500, "handover_receiver_name_max_length": 100,
+        })
 
     def test_same_for_logged_in_user(self):
         from apps.accounts.models import User
