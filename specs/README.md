@@ -24,6 +24,6 @@ Quy ước API chung (định dạng lỗi, phân trang, CSRF, gửi lại yêu 
 | [006](006-lay-hang-diem-tap-ket/spec.md) | Lấy hàng và nhập điểm tập kết | 06.5, 04.1–04.3, 04.13, 04.10 | `dispatch` | 003, 005 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](006-lay-hang-diem-tap-ket/manual-test.md)) |
 | [007](007-giao-hang-cod/spec.md) | Giao hàng, COD, giao lại | 06.6, 04.4–04.7, 04.12 | `dispatch` | 006 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](007-giao-hang-cod/manual-test.md)); **đạt cột mốc demo "giao thành công"** |
 | [008](008-hoan-hang/spec.md) | Hoàn hàng | 06.7, 04.8, 04.9, 04.11 | `dispatch` | 007 | Đã triển khai — chờ thử trình duyệt ([manual-test.md](008-hoan-hang/manual-test.md)) |
-| 009 | Đổi Shipper / phân công lại | 06.8 | `dispatch` | 006–008 | Chưa viết |
-| 010 | Tra cứu và lịch sử vận chuyển | 03.1–03.2 | `tracking` | 005 | Chưa viết |
-| 011 | GPS và bản đồ ("Nên có") | 03.3–03.5 | `tracking` | 006–009 | Chưa viết |
+| [009](009-doi-shipper/spec.md) | Đổi Shipper / phân công lại | 06.8 | `dispatch` | 006–008 | Đã triển khai; nghiệm thu chức năng tự động đạt, chờ người dùng tự thử và xử lý audit dev — [báo cáo](009-doi-shipper/acceptance.md) |
+| [010](010-tra-cuu-lich-su/spec.md) | Tra cứu và lịch sử vận chuyển | 03.1–03.2 | `shipments` (không cần app mới) | 005 | Phase 3 kiểm tra kỹ thuật đạt; chờ người dùng tự thử, audit dev còn 7 mục; [nghiệm thu](010-tra-cuu-lich-su/acceptance.md) |
+| [011](011-gps-ban-do/spec.md) | GPS và bản đồ ("Nên có") | 03.3–03.5 | `tracking` | 006–009 | Phase 1–4 đạt: 384 Vitest/build, flow Chrome/API/PostgreSQL thật và 10 ảnh; D7 mở Maps theo đề xuất; chưa migrate DB dùng chung, còn nghiệm thu Phase 5/người dùng tự thử; audit dev cũ còn mở |

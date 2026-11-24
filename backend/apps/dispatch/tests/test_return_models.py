@@ -39,7 +39,7 @@ class HandoverReceiverTests(TestCase):
                 self.handover(kind, from_shipper=self.shipper)
 
     def test_new_kinds_and_length(self):
-        self.assertEqual(HandoverKind.values, ["HUB_INTAKE", "RETURN_INTAKE", "SHOP_PICKUP"])
+        self.assertEqual(HandoverKind.values, ["HUB_INTAKE", "RETURN_INTAKE", "SHOP_PICKUP", "REASSIGN_INTAKE"])  # +009
         self.assertEqual(Handover._meta.get_field("receiver_name").max_length, RECEIVER_NAME_MAX_LENGTH)
         self.assert_rejected(lambda: self.handover("UNKNOWN"))  # CHECK kind tạo lại vẫn chặn mã lạ
 

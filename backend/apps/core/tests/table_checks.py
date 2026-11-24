@@ -2,6 +2,7 @@
 from collections import deque
 
 from apps.accounts.constants import UserRole
+from apps.core.transitions import KEEP
 
 
 class TransitionTableChecks:
@@ -20,7 +21,11 @@ class TransitionTableChecks:
         statuses = set(self.status_enum.values)
         for action, rule in self.table.items():
             with self.subTest(action=action):
-                self.assertIn(rule.target, statuses)
+                # KEEP (spec 009 D2) = ở nguyên trạng thái nguồn → luôn hợp lệ nếu nguồn hợp lệ và không rỗng.
+                if rule.target == KEEP:
+                    self.assertTrue(rule.sources)
+                else:
+                    self.assertIn(rule.target, statuses)
                 self.assertLessEqual(set(rule.sources), statuses)
 
     def test_roles_are_valid(self):
@@ -44,14 +49,17 @@ class TransitionTableChecks:
         self.assertLessEqual(self.terminal, set(self.status_enum.values))
         self.assertNotIn(self.initial, self.terminal)
 
+    def _next(self, current):
+        """Trạng thái đi tới được từ `current` trong một bước (KEEP = đứng yên, không thêm cạnh mới)."""
+        return {rule.target_from(current) for rule in self.table.values() if current in rule.sources}
+
     def test_every_status_reachable_from_initial(self):
         seen, queue = {self.initial}, deque([self.initial])
         while queue:
             current = queue.popleft()
-            for rule in self.table.values():
-                if current in rule.sources and rule.target not in seen:
-                    seen.add(rule.target)
-                    queue.append(rule.target)
+            for nxt in self._next(current) - seen:
+                seen.add(nxt)
+                queue.append(nxt)
         self.assertEqual(seen, set(self.status_enum.values))
 
     def test_every_non_terminal_status_can_reach_terminal(self):
@@ -60,9 +68,8 @@ class TransitionTableChecks:
             seen, queue = {start}, deque([start])
             while queue:
                 current = queue.popleft()
-                for rule in self.table.values():
-                    if current in rule.sources and rule.target not in seen:
-                        seen.add(rule.target)
-                        queue.append(rule.target)
+                for nxt in self._next(current) - seen:
+                    seen.add(nxt)
+                    queue.append(nxt)
             with self.subTest(status=start):
                 self.assertTrue(seen & self.terminal)

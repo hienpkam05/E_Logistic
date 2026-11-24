@@ -51,6 +51,11 @@ class Task(models.Model):
         related_name="+", db_index=False,
     )
     handover_reported_at = models.DateTimeField("Shipper báo đã bàn giao lúc", null=True, blank=True)
+    # Spec 009 (UC06.8 A1.2): người mới DỰ KIẾN khi Chờ bàn giao đổi Shipper — chưa có quyền nhiệm vụ.
+    swap_candidate = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name="Shipper dự kiến", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="+", db_index=False,
+    )
     needs_attention = models.BooleanField("cần Nhân viên xử lý", default=False)  # D9: Shipper bị khóa
     attempt_no = models.PositiveSmallIntegerField("lần giao thứ", null=True, blank=True)  # chỉ DELIVERY
     created_at = models.DateTimeField("tạo lúc", auto_now_add=True)
@@ -84,6 +89,12 @@ class Task(models.Model):
                            & Q(attempt_no__isnull=False, attempt_no__gte=1, attempt_no__lte=MAX_DELIVERY_ATTEMPTS))
                 | (~Q(type=TaskType.DELIVERY) & Q(attempt_no__isnull=True)),
                 name="task_attempt_matches_type",
+            ),
+            # Spec 009: người dự kiến có ⇔ đang Chờ bàn giao đổi Shipper (isnull tường minh — bài học spec 007).
+            models.CheckConstraint(
+                condition=(Q(status=TaskStatus.PENDING_SWAP_HANDOVER) & Q(swap_candidate__isnull=False))
+                | (~Q(status=TaskStatus.PENDING_SWAP_HANDOVER) & Q(swap_candidate__isnull=True)),
+                name="task_swap_candidate_only_pending",
             ),
         ]
 

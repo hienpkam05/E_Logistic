@@ -15,6 +15,7 @@ from apps.shipments.views import detail_response
 from . import services
 from .constants import OPEN_TASK_STATUSES, SHIPPER_PICKER_LIMIT, TERMINAL_TASK_STATUSES
 from .permissions import tasks_visible_to
+from .models import Task
 from .serializers import (
     AssignDeliverySerializer,
     ConfirmDeliverySerializer,
@@ -28,6 +29,9 @@ from .serializers import (
     TaskDetailSerializer,
     TaskListQuerySerializer,
     TaskListSerializer,
+    SwapShipperSerializer,
+    ConfirmSwapHandoverSerializer,
+    OpenTaskSerializer,
 )
 
 IsStaff = HasRole.of(UserRole.ADMIN)
@@ -52,6 +56,15 @@ class ShipperPickerView(APIView):
         return Response(ShipperSerializer(queryset[:SHIPPER_PICKER_LIMIT], many=True).data)
 
 
+class ShipperOpenTasksView(APIView):
+    permission_classes = [IsStaff]
+
+    def get(self, request, pk):
+        shipper = get_object_or_404(User, pk=pk, role=UserRole.SHIPPER)
+        tasks = Task.objects.filter(shipper=shipper, status__in=OPEN_TASK_STATUSES).select_related("shipment")
+        return Response(OpenTaskSerializer(tasks, many=True).data)
+
+
 class _StaffShipmentAction(APIView):
     """Khuôn chung: 404 trước lỗi dữ liệu → kiểm dữ liệu → service → trả chi tiết đơn mới."""
 
@@ -67,6 +80,34 @@ class _StaffShipmentAction(APIView):
         serializer.is_valid(raise_exception=True)
         self.perform(request, pk, serializer.validated_data)
         return detail_response(request, pk)
+
+
+class SwapShipperView(_StaffShipmentAction):
+    serializer_class = SwapShipperSerializer
+
+    def perform(self, request, pk, data):
+        services.swap_shipper(request.user, pk, data["shipper_id"], data["reason"], data["updated_at"])
+
+
+class ConfirmSwapHandoverView(_StaffShipmentAction):
+    serializer_class = ConfirmSwapHandoverSerializer
+
+    def perform(self, request, pk, data):
+        services.confirm_swap_handover(request.user, pk, data["discrepancy_note"], data["updated_at"])
+
+
+class ReportSwapIssueView(_StaffShipmentAction):
+    serializer_class = StaffDecisionSerializer
+
+    def perform(self, request, pk, data):
+        services.report_swap_issue(request.user, pk, data["reason"], data["updated_at"])
+
+
+class RecallToHubView(_StaffShipmentAction):
+    serializer_class = ReceiveAtHubSerializer
+
+    def perform(self, request, pk, data):
+        services.recall_to_hub(request.user, pk, data["discrepancy_note"], data["updated_at"])
 
 
 class AssignPickupView(_StaffShipmentAction):
@@ -260,6 +301,13 @@ class ReportReturnHandoverView(_ShipperTaskAction):
 
     def perform(self, request, pk, data):
         services.report_return_handover(request.user, pk)
+
+
+class ReportSwapHandoverView(_ShipperTaskAction):
+    """UC06.8 A1.3: người cũ báo đã đưa hàng về, chờ Nhân viên xác nhận."""
+
+    def perform(self, request, pk, data):
+        services.report_swap_handover(request.user, pk)
 
 
 class FailDeliveryView(_ShipperTaskAction):

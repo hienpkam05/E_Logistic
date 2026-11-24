@@ -14,6 +14,68 @@ beforeEach(() => dispatchService.shippers.mockReset())
 afterEach(() => vi.useRealTimers())
 
 describe('ShipperPicker', () => {
+  it('exclude loại người cũ khỏi danh sách, vẫn chọn người thay thế được', async () => {
+    dispatchService.shippers.mockResolvedValue([LONG, BINH])
+    const wrapper = mountWithModel(ShipperPicker, { exclude: LONG.id })
+    await flush()
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(1)
+    expect(wrapper.find('.picker__item').text()).toContain(BINH.full_name)
+    await wrapper.find('input[type="radio"]').setValue(true)
+    expect(wrapper.props('modelValue')).toBe(BINH.id)
+  })
+
+  it('xóa lựa chọn bị exclude cả lúc dựng và khi prop đổi; bỏ exclude hiện lại người cũ', async () => {
+    dispatchService.shippers.mockResolvedValue([LONG, BINH])
+    const wrapper = mountWithModel(ShipperPicker, { exclude: LONG.id, modelValue: LONG.id })
+    await flush()
+    expect(wrapper.props('modelValue')).toBeNull()
+    await wrapper.find('input[type="radio"]').setValue(true)
+    await wrapper.setProps({ exclude: BINH.id })
+    await flush()
+    expect(wrapper.props('modelValue')).toBeNull()
+    expect(wrapper.find('.picker__item').text()).toContain(LONG.full_name)
+    await wrapper.setProps({ exclude: null })
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(2)
+    expect(dispatchService.shippers).toHaveBeenCalledTimes(1)
+  })
+
+  it('chỉ còn người bị loại: báo không phù hợp, không hướng dẫn sai trạng thái đơn', async () => {
+    dispatchService.shippers.mockResolvedValue([LONG])
+    const wrapper = mount(ShipperPicker, { props: { exclude: LONG.id } })
+    await flush()
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(0)
+    expect(wrapper.find('[role="status"]').text()).toBe('Không tìm thấy Shipper phù hợp.')
+    expect(wrapper.text()).not.toContain('Chờ lấy hàng')
+  })
+
+  it('exclude áp dụng cả cho kết quả tìm mới và kết quả đang chờ trả về', async () => {
+    vi.useFakeTimers()
+    let finish
+    dispatchService.shippers.mockReturnValueOnce(new Promise((resolve) => { finish = resolve }))
+    const wrapper = mountWithModel(ShipperPicker, { exclude: null })
+    await wrapper.setProps({ exclude: LONG.id })
+    finish([LONG, BINH])
+    await vi.runAllTimersAsync()
+    expect(wrapper.findAll('.picker__item')).toHaveLength(1)
+    dispatchService.shippers.mockResolvedValue([LONG])
+    await wrapper.find('input[type="search"]').setValue('Long')
+    await vi.runAllTimersAsync()
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(0)
+    expect(wrapper.text()).toContain('Không tìm thấy Shipper phù hợp.')
+  })
+
+  it('holder bị loại: không tự chọn lại hoặc tải người khác đang không giữ hàng', async () => {
+    const wrapper = mountWithModel(ShipperPicker, { holder: LONG, exclude: LONG.id })
+    await flush()
+    expect(wrapper.props('modelValue')).toBeNull()
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(0)
+    expect(dispatchService.shippers).not.toHaveBeenCalled()
+    await wrapper.setProps({ exclude: null })
+    await flush()
+    expect(wrapper.props('modelValue')).toBe(LONG.id)
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(1)
+  })
+
   it('hiện Shipper đang hoạt động kèm khối lượng việc; chọn → v-model là id', async () => {
     dispatchService.shippers.mockResolvedValue([LONG, BINH])
     const wrapper = mount(ShipperPicker, { props: { modelValue: null, 'onUpdate:modelValue': (v) => wrapper.setProps({ modelValue: v }) } })

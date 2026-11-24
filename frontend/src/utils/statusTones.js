@@ -50,6 +50,14 @@ export const SHIPMENT_STATUS = Object.freeze({
   AWAITING_SHOP_PICKUP: 'AWAITING_SHOP_PICKUP',
 })
 
+// Trạng thái nhiệm vụ cần nhận biết ở khối điều phối / trang Shipper (spec 009).
+// Nhãn và tông màu vẫn dùng meta + STATUS_TONES; test đối chiếu TaskStatus backend.
+export const TASK_STATUS = Object.freeze({
+  ACTIVE: 'ACTIVE',
+  PENDING_SWAP_HANDOVER: 'PENDING_SWAP_HANDOVER',
+  REPLACED: 'REPLACED',
+})
+
 export function toneOf(group, value) {
   return STATUS_TONES[group]?.[value] ?? 'neutral'
 }

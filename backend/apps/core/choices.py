@@ -3,6 +3,10 @@
 Thêm enum mới mà frontend cần hiển thị: đăng ký vào CHOICE_GROUPS (test sẽ báo nếu quên).
 """
 from django.conf import settings
+from apps.tracking.constants import (
+    PING_MAX_AGE_SECONDS, PING_MAX_FUTURE_SECONDS, PING_MIN_INTERVAL_SECONDS, PING_MAX_ACCURACY_M,
+    LOCATION_STALE_SECONDS, LOCATION_RETENTION_DAYS, LOCATION_POLL_INTERVAL_SECONDS,
+)
 
 from apps.accounts.constants import AccountAction, UserRole
 from apps.core.constants import SEARCH_QUERY_MAX_LENGTH
@@ -50,6 +54,13 @@ CHOICE_GROUPS = {
 }
 
 LIMITS = {
+    "location_ping_max_age_seconds": PING_MAX_AGE_SECONDS,
+    "location_ping_max_future_seconds": PING_MAX_FUTURE_SECONDS,
+    "location_ping_min_interval_seconds": PING_MIN_INTERVAL_SECONDS,
+    "location_ping_max_accuracy_m": PING_MAX_ACCURACY_M,
+    "location_stale_seconds": LOCATION_STALE_SECONDS,
+    "location_poll_interval_seconds": LOCATION_POLL_INTERVAL_SECONDS,
+    "location_retention_days": LOCATION_RETENTION_DAYS,
     "max_delivery_attempts": MAX_DELIVERY_ATTEMPTS,
     "cod_max_vnd": COD_MAX_VND,
     # Spec 004: form yêu cầu gửi hàng dùng để đặt giới hạn ô nhập (không chép số sang frontend).

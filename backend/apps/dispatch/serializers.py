@@ -6,7 +6,7 @@ from rest_framework import serializers
 from apps.accounts.models import User
 from apps.accounts.serializers import EventActorSerializer
 
-from apps.shipments.constants import ShipmentAction
+from apps.shipments.constants import COD_MAX_VND, ShipmentAction
 from apps.shipments.rules import shipment_allowed_actions
 
 from .constants import (
@@ -20,9 +20,9 @@ from .constants import (
     REASON_REQUIRED_MESSAGE,
     RESULT_NOTE_MAX_LENGTH,
     PickupFailReason,
+    TaskStatus,
     TaskType,
 )
-from apps.shipments.constants import COD_MAX_VND
 
 from .models import Task, TaskResult
 
@@ -52,21 +52,27 @@ class TaskResultSerializer(serializers.ModelSerializer):
 
 
 class TaskSummarySerializer(serializers.ModelSerializer):
-    """Lịch sử nhiệm vụ trong chi tiết đơn của Nhân viên. Queryset: select_related shipper, assigned_by, result."""
+    """Lịch sử nhiệm vụ phía NV; prefetch shipper, assigned_by, result, swap_candidate, replaced_by__shipper."""
 
     shipper = PersonSerializer(read_only=True)
     assigned_by = EventActorSerializer(read_only=True)
     result = serializers.SerializerMethodField()
+    swap_candidate = EventActorSerializer(read_only=True)
+    replaced_by = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
         fields = ["id", "type", "status", "attempt_no", "shipper", "assigned_by", "assigned_at", "closed_at",
-                  "needs_attention", "handover_reported_at", "result"]
+                  "needs_attention", "handover_reported_at", "result", "swap_candidate", "replaced_by"]
         read_only_fields = fields
 
     def get_result(self, obj):
         result = getattr(obj, "result", None)  # OneToOne ngược: thiếu thì RelatedObjectDoesNotExist → None
         return TaskResultSerializer(result).data if result else None
+
+    def get_replaced_by(self, obj):
+        task = obj.replaced_by
+        return {"id": task.pk, "shipper": EventActorSerializer(task.shipper).data} if task else None
 
 
 # ---- Thao tác Nhân viên trên đơn: cùng khuôn ApproveShipmentSerializer (updated_at bắt buộc) ----
@@ -86,8 +92,8 @@ class ReceiveAtHubSerializer(_versioned()):
                                              default="")
 
 
-class AssignDeliverySerializer(AssignPickupSerializer):
-    """UC06.6 bước 3–4 (D6): Nhân viên xác nhận đã giao hàng cho Shipper tại điểm tập kết."""
+class HandedOverConfirmationSerializer(serializers.Serializer):
+    """Xác nhận Shipper đã nhận hàng: dùng cho phân công giao và bàn giao đổi người."""
 
     handed_over = serializers.BooleanField(error_messages={"required": HANDOVER_REQUIRED_MESSAGE})
 
@@ -95,6 +101,10 @@ class AssignDeliverySerializer(AssignPickupSerializer):
         if not value:
             raise serializers.ValidationError(HANDOVER_REQUIRED_MESSAGE)
         return value
+
+
+class AssignDeliverySerializer(AssignPickupSerializer, HandedOverConfirmationSerializer):
+    """UC06.6 bước 3–4 (D6)."""
 
 
 class ConfirmShopReceivedSerializer(_versioned()):
@@ -120,6 +130,26 @@ class StaffDecisionSerializer(_versioned()):
         max_length=RESULT_NOTE_MAX_LENGTH,
         error_messages={"required": REASON_REQUIRED_MESSAGE, "blank": REASON_REQUIRED_MESSAGE},
     )
+
+
+class SwapShipperSerializer(StaffDecisionSerializer):
+    shipper_id = serializers.IntegerField(min_value=1)
+
+
+class ConfirmSwapHandoverSerializer(ReceiveAtHubSerializer, HandedOverConfirmationSerializer):
+    """UC06.8 A1.4: người dự kiến đã nhận hàng tại điểm tập kết."""
+
+
+class OpenTaskSerializer(serializers.ModelSerializer):
+    shipment = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = ["id", "type", "status", "needs_attention", "shipment"]
+        read_only_fields = fields
+
+    def get_shipment(self, obj):
+        return {"id": obj.shipment_id, "tracking_code": obj.shipment.tracking_code, "status": obj.shipment.status}
 
 
 # ---- Phía Shipper. Quyền tối thiểu: mỗi loại nhiệm vụ chỉ chứa thông tin cần để làm việc đó (spec 006 D3, 007 D3).
@@ -219,6 +249,18 @@ TASK_SHIPMENT_VIEWS = {
 # Hành động một lần trên nhiệm vụ: đã làm (trường có giá trị) thì bỏ khỏi allowed_actions dù trạng thái đơn còn cho.
 TASK_ONE_TIME_ACTIONS = {
     ShipmentAction.REPORT_RETURN_HANDOVER: "handover_reported_at",  # spec 008 D4
+    ShipmentAction.REPORT_SWAP_HANDOVER: "handover_reported_at",  # spec 009 D4
+}
+
+# Hành động của Shipper chỉ hợp lệ ở một trạng thái NHIỆM VỤ (spec 009 D4): đang chờ bàn giao đổi người thì người cũ
+# mất giao / thất bại / COD, chỉ còn báo đã đưa về. Service đã chặn (qua TASK_TRANSITIONS) — bảng này để nút khớp.
+TASK_STATUS_FOR_ACTION = {
+    ShipmentAction.CONFIRM_PICKUP: TaskStatus.ACTIVE,
+    ShipmentAction.FAIL_PICKUP: TaskStatus.ACTIVE,
+    ShipmentAction.CONFIRM_DELIVERY: TaskStatus.ACTIVE,
+    ShipmentAction.FAIL_DELIVERY: TaskStatus.ACTIVE,
+    ShipmentAction.REPORT_RETURN_HANDOVER: TaskStatus.ACTIVE,
+    ShipmentAction.REPORT_SWAP_HANDOVER: TaskStatus.PENDING_SWAP_HANDOVER,
 }
 
 
@@ -254,7 +296,9 @@ class TaskDetailSerializer(TaskListSerializer):
         if not obj.is_open:
             return []
         actions = shipment_allowed_actions(obj.shipment, self.context["request"].user.role)
-        return [a for a in actions if not getattr(obj, TASK_ONE_TIME_ACTIONS.get(a, ""), None)]
+        return [a for a in actions
+                if not getattr(obj, TASK_ONE_TIME_ACTIONS.get(a, ""), None)
+                and TASK_STATUS_FOR_ACTION.get(a, obj.status) == obj.status]
 
     def get_result(self, obj):
         result = getattr(obj, "result", None)

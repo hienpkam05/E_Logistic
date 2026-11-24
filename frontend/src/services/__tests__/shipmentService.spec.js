@@ -10,6 +10,31 @@ const call = async (fn) => {
 }
 
 describe('shipmentService — khớp specs/004 api.md', () => {
+  it('lookup và lịch sử có ordering đúng hợp đồng spec 010', async () => {
+    expect((await call(() => shipmentService.lookup('YC000012'))).url).toBe('/api/v1/shipments/lookup/?code=YC000012')
+    expect((await call(() => shipmentService.events(12, { page: 2, ordering: '-created_at' }))).url)
+      .toBe('/api/v1/shipments/12/events/?page=2&ordering=-created_at')
+  })
+  it('đổi Shipper, xác nhận bàn giao, sai lệch và nhận về kèm phiên bản (spec 009)', async () => {
+    const version = '2026-11-23T15:00:00Z'
+    expect(await call(() => shipmentService.swapShipper(15, 8, 'Nghỉ đột xuất', version))).toEqual({
+      url: '/api/v1/shipments/15/swap-shipper/', method: 'POST',
+      body: { shipper_id: 8, reason: 'Nghỉ đột xuất', updated_at: version },
+    })
+    expect(await call(() => shipmentService.confirmSwapHandover(15, '', version))).toEqual({
+      url: '/api/v1/shipments/15/confirm-swap-handover/', method: 'POST',
+      body: { handed_over: true, discrepancy_note: '', updated_at: version },
+    })
+    expect(await call(() => shipmentService.reportSwapIssue(15, 'Thiếu kiện', version))).toEqual({
+      url: '/api/v1/shipments/15/report-swap-issue/', method: 'POST',
+      body: { reason: 'Thiếu kiện', updated_at: version },
+    })
+    expect(await call(() => shipmentService.recallToHub(15, 'Móp hộp', version))).toEqual({
+      url: '/api/v1/shipments/15/recall-to-hub/', method: 'POST',
+      body: { discrepancy_note: 'Móp hộp', updated_at: version },
+    })
+  })
+
   it('wards / list nhiều trạng thái / get', async () => {
     expect((await call(() => shipmentService.wards())).url).toBe('/api/v1/shipments/wards/')
     expect((await call(() => shipmentService.list({ status: ['PENDING_APPROVAL', 'CANCELLED'], q: '', page: 2 }))).url)

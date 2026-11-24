@@ -127,10 +127,12 @@ Mã mới vào `shipmentActions.js` (`SHIPMENT_ACTION` +5, `TASK_TYPE.RETURN`) +
 
 ## 6. Ghi chú cho spec sau
 
-- **Spec 009:** đổi Shipper khi đang giữ hàng hoàn (UC06.7 A1.1): sau khi bàn giao về điểm tập kết, hàng ở `HUB` → nhánh A1.2 của spec này (tiếp nhận thẳng) đã sẵn.
-  - Nhiệm vụ hoàn bị thay người (`REPLACED`) trong khi đơn vẫn Đang hoàn: người cũ **không** được báo bàn giao — đã chặn và có test (`test_replaced_task_cannot_report_while_shipment_still_returning`).
-  - Đổi Shipper đúng lúc người cũ đã báo bàn giao: `handover_reported_at` nằm trên nhiệm vụ cũ; nhiệm vụ mới bắt đầu chưa báo.
-  - Gỡ cảnh báo "Shipper giữ hàng đã bị khóa" (spec 007 D7 — áp dụng cả hoàn hàng).
+- **Spec 009 đã xử lý (23/11/2026):** Chờ xử lý hoàn, không nhiệm vụ mở mà hàng ở Shipper → NV nhận về điểm tập kết,
+  hàng ở `HUB`, tiếp nhận hoàn thẳng (A1.2), không tạo chuyến hoàn thừa; hết `holder_locked`.
+  - D3 spec 009 **không đổi người trên nhiệm vụ hoàn đang mở**: dùng Tiếp nhận hàng hoàn, kể cả người cũ bị khóa/chưa báo.
+    Test nhiệm vụ hoàn `REPLACED` là chặn dữ liệu bất thường, không phải một nhánh đổi người hợp lệ.
+  - Helper báo đưa hàng về dùng chung với báo bàn giao đổi người; khóa đơn → người ghi → nhiệm vụ,
+    kiểm lại tài khoản sau khi chờ khóa, tránh deadlock với khóa tài khoản. Không đổi hợp đồng API báo hoàn.
 - **Giao diện:** chi tiết đơn của NV chưa có trường "lý do hoàn" riêng — hộp phân công hoàn chỉ dẫn sang mục Lịch sử. Nếu cần, thêm `return_reason` cho NV như phía Shipper (một truy vấn).
 
 **Việc có từ trước, không thuộc spec này (ghi lại khi nghiệm thu):** lịch sử vận đơn của Shop hiện tên Nhân viên / Shipper thực hiện từng mốc (từ spec 004–005); 16 cảnh báo Vue Router trong test màn tài khoản (spec 003); 404 `favicon.ico`.

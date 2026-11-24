@@ -45,6 +45,8 @@ export const SHIPMENT_CHOICES = {
   task_types: [{ value: 'PICKUP', label: 'Lấy hàng' }, { value: 'DELIVERY', label: 'Giao hàng' },
     { value: 'RETURN', label: 'Hoàn hàng' }],
   task_statuses: [{ value: 'ACTIVE', label: 'Đang thực hiện', terminal: false },
+    { value: 'PENDING_SWAP_HANDOVER', label: 'Chờ bàn giao đổi Shipper', terminal: false },
+    { value: 'REPLACED', label: 'Đã thay thế', terminal: true },
     { value: 'SUCCEEDED', label: 'Hoàn tất', terminal: true }, { value: 'FAILED', label: 'Thất bại', terminal: true }],
   pickup_fail_reasons: [{ value: 'SHOP_ABSENT', label: 'Shop vắng mặt / không liên lạc được' },
     { value: 'NOT_READY', label: 'Hàng chưa sẵn sàng' }, { value: 'OTHER', label: 'Khác' }],

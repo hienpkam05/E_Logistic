@@ -9,6 +9,8 @@ import OneTimeSecret from '../../components/common/OneTimeSecret.vue'
 import PaginationBar from '../../components/common/PaginationBar.vue'
 import { ROLES } from '../../router/roles'
 import * as accountService from '../../services/accountService'
+import * as dispatchService from '../../services/dispatchService'
+import StatusBadge from '../../components/common/StatusBadge.vue'
 import { API_ERROR } from '../../services/http'
 import { useAuthStore } from '../../stores/auth'
 import { useMetaStore } from '../../stores/meta'
@@ -120,6 +122,25 @@ const dialogError = ref('')
 const lockReason = ref('')
 const identityVerified = ref(false)
 const tempPassword = ref('')
+const openTasks = ref([])
+const tasksLoading = ref(false)
+const tasksError = ref('')
+let tasksRequest = 0
+
+async function loadOpenTasks() {
+  const request = ++tasksRequest
+  const accountId = id.value
+  tasksLoading.value = true
+  tasksError.value = ''
+  try {
+    const data = await dispatchService.openTasks(accountId)
+    if (request === tasksRequest && dialog.value === 'lock' && id.value === accountId) openTasks.value = data
+  } catch (err) {
+    if (request === tasksRequest && dialog.value === 'lock') tasksError.value = err?.message || 'Chưa tải được nhiệm vụ.'
+  } finally {
+    if (request === tasksRequest) tasksLoading.value = false
+  }
+}
 
 function openDialog(name) {
   dialog.value = name
@@ -127,6 +148,9 @@ function openDialog(name) {
   lockReason.value = ''
   identityVerified.value = false
   success.value = ''
+  openTasks.value = []
+  tasksError.value = ''
+  if (name === 'lock' && isShipper.value) loadOpenTasks()
 }
 
 function closeDialog() {
@@ -154,7 +178,10 @@ async function runAction(action, successText) {
   }
 }
 
-const confirmLock = () => runAction(() => accountService.lock(id.value, lockReason.value.trim()), 'Đã khóa tài khoản.')
+const confirmLock = () => {
+  if (dialogBusy.value || (isShipper.value && (tasksLoading.value || tasksError.value))) return
+  runAction(() => accountService.lock(id.value, lockReason.value.trim()), 'Đã khóa tài khoản.')
+}
 const confirmUnlock = () => runAction(() => accountService.unlock(id.value), 'Đã mở khóa tài khoản.')
 const confirmReset = () => runAction(() => accountService.resetPassword(id.value))
 
@@ -201,6 +228,9 @@ async function loadEvents(pageNumber = eventsPage.value) {
 }
 
 watch(id, () => {
+  dialog.value = ''
+  tasksRequest++
+  tasksLoading.value = false
   editing.value = false
   tempPassword.value = ''
   success.value = ''
@@ -310,10 +340,33 @@ watch(id, () => {
 
       <!-- Hộp xác nhận -->
       <ConfirmDialog :open="dialog === 'lock'" title="Khóa tài khoản?" confirm-label="Khóa" tone="danger"
-                     :busy="dialogBusy" @confirm="confirmLock" @cancel="closeDialog">
+                     :busy="dialogBusy" :confirm-disabled="isShipper && (tasksLoading || Boolean(tasksError))"
+                     @confirm="confirmLock" @cancel="closeDialog">
         <p><strong>{{ account.username }}</strong> sẽ bị đăng xuất ngay trên mọi thiết bị và không đăng nhập được
           cho tới khi mở khóa. Khi mở khóa phải đăng nhập lại.</p>
         <p v-if="isShipper">Nhiệm vụ đang mở của Shipper vẫn được giữ và cần Nhân viên xử lý (bàn giao/đổi người).</p>
+        <template v-if="isShipper && dialog === 'lock'">
+          <p v-if="tasksLoading" class="loading" role="status">Đang tải nhiệm vụ đang mở…</p>
+          <div v-else-if="tasksError" class="alert alert--danger" role="alert">
+            <p>{{ tasksError }}</p><button type="button" class="btn btn--ghost btn--sm" @click="loadOpenTasks">Tải lại nhiệm vụ</button>
+          </div>
+          <template v-else>
+            <p v-if="!openTasks.length" class="muted">Shipper không có nhiệm vụ đang mở.</p>
+            <template v-else>
+              <p class="alert alert--warning">Sau khi khóa, cần xử lý bàn giao/đổi Shipper cho {{ openTasks.length }} nhiệm vụ này.</p>
+              <ul class="events">
+                <li v-for="task in openTasks" :key="task.id" class="events__item">
+                  <RouterLink :to="{ name: 'staff-shipment-detail', params: { id: task.shipment.id } }">
+                    {{ task.shipment.tracking_code || `Đơn #${task.shipment.id}` }}
+                  </RouterLink>
+                  <span>{{ meta.label('task_types', task.type) }}</span>
+                  <StatusBadge group="task_statuses" :value="task.status" />
+                  <span v-if="task.needs_attention" class="muted">Cần Nhân viên xử lý</span>
+                </li>
+              </ul>
+            </template>
+          </template>
+        </template>
         <FormField v-model="lockReason" label="Lý do (không bắt buộc)" multiline :disabled="dialogBusy" />
         <p v-if="dialogError" class="alert alert--danger" role="alert">{{ dialogError }}</p>
       </ConfirmDialog>

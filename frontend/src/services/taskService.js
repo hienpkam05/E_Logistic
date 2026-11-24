@@ -7,7 +7,7 @@ const one = (id) => `${base}${encodeURIComponent(id)}/`
 
 // open: true = đang làm, false = đã xong, bỏ trống = tất cả. type: PICKUP / DELIVERY, bỏ trống = mọi loại (spec 007).
 export const list = ({ type, open, page } = {}) => http.get(base, { params: { type, open, page } })
-export const get = (id) => http.get(one(id))
+export const get = (id, options = {}) => http.get(one(id), options)
 export const confirmPickup = (id) => http.post(`${one(id)}confirm-pickup/`)
 // reasonCode: mã trong /meta/choices/ nhóm pickup_fail_reasons; Khác → note bắt buộc (backend kiểm).
 export const failPickup = (id, reasonCode, note = '') =>
@@ -20,3 +20,5 @@ export const failDelivery = (id, reasonCode, note = '') =>
   http.post(`${one(id)}fail-delivery/`, { reason_code: reasonCode, note })
 // Spec 008: đã đưa hàng hoàn về điểm tập kết — chỉ báo, Nhân viên mới xác nhận tiếp nhận.
 export const reportReturnHandover = (id) => http.post(`${one(id)}report-return-handover/`)
+// Spec 009: người cũ báo đã đưa hàng về để đổi Shipper, chưa phải NV xác nhận nhận hàng.
+export const reportSwapHandover = (id) => http.post(`${one(id)}report-swap-handover/`)

@@ -15,6 +15,7 @@ vi.mock('../../services/shipmentService', () => ({
   approve: vi.fn(), reject: vi.fn(), assignPickup: vi.fn(), receiveAtHub: vi.fn(), retryPickup: vi.fn(),
   abandonPickup: vi.fn(), assignDelivery: vi.fn(), decideRedelivery: vi.fn(), decideReturn: vi.fn(),
   assignReturn: vi.fn(), receiveReturn: vi.fn(), reportReturnIssue: vi.fn(), confirmShopReceived: vi.fn(),
+  swapShipper: vi.fn(), confirmSwapHandover: vi.fn(), reportSwapIssue: vi.fn(), recallToHub: vi.fn(),
 }))
 vi.mock('../../services/dispatchService', () => ({ shippers: vi.fn() }))
 
@@ -50,6 +51,84 @@ afterEach(() => {
 })
 
 describe('StaffShipmentDetailView', () => {
+  const OLD = { id: 41, type: 'DELIVERY', status: 'ACTIVE', attempt_no: 2, shipper: SHIPPER,
+    assigned_at: '2026-11-23T04:00:00Z', closed_at: null }
+  const NEXT = { id: 8, username: 'sp_binh', full_name: 'Trần Bình', phone: '0987654321', open_task_count: 0 }
+  const SWAP = { ...PENDING, tracking_code: APPROVED.tracking_code, status: 'OUT_FOR_DELIVERY',
+    holder_type: 'SHIPPER', holder_shipper: SHIPPER, delivery_attempts: 1,
+    tasks: [OLD], allowed_actions: ['SWAP_SHIPPER'] }
+  const WAITING = { ...SWAP, tasks: [{ ...OLD, status: 'PENDING_SWAP_HANDOVER', swap_candidate: NEXT }],
+    allowed_actions: ['SWAP_SHIPPER', 'CONFIRM_SWAP_HANDOVER', 'REPORT_SWAP_ISSUE'] }
+
+  it('đổi người: loại người cũ, lý do bắt buộc, gửi phiên bản và báo chờ bàn giao', async () => {
+    dispatchService.shippers.mockResolvedValue([{ ...SHIPPER, open_task_count: 1 }, NEXT])
+    shipmentService.swapShipper.mockResolvedValue(WAITING)
+    const { wrapper } = await setup(SWAP)
+    await button(wrapper, 'Đổi Shipper').trigger('click'); await flush()
+    const dialog = openDialog(wrapper)
+    expect(dialog.text()).toContain('Người mới chỉ là dự kiến')
+    expect(dialog.findAll('input[type="radio"]')).toHaveLength(1)
+    expect(dialog.find('button[type="submit"]').element.disabled).toBe(true)
+    await dialog.find('input[type="radio"]').setValue(true)
+    await dialog.find('textarea').setValue('  Nghỉ đột xuất  ')
+    await dialog.find('form').trigger('submit'); await flush()
+    expect(shipmentService.swapShipper).toHaveBeenCalledWith('12', 8, 'Nghỉ đột xuất', SWAP.updated_at)
+    expect(wrapper.text()).toContain('Chờ bàn giao đổi Shipper — dự kiến: Trần Bình')
+  })
+
+  it('xác nhận bàn giao cần tick nhận đủ hàng; đổi người dự kiến được chọn sẵn', async () => {
+    dispatchService.shippers.mockResolvedValue([NEXT])
+    const { wrapper } = await setup(WAITING)
+    await button(wrapper, 'Đổi Shipper').trigger('click'); await flush()
+    expect(openDialog(wrapper).find('input[type="radio"]').element.checked).toBe(true)
+    await openDialog(wrapper).find('button[type="button"]').trigger('click'); await flush()
+    await button(wrapper, 'Xác nhận nhận hàng bàn giao').trigger('click'); await flush()
+    const dialog = openDialog(wrapper)
+    expect(dialog.text()).toContain('Shipper chưa báo')
+    expect(dialog.find('button[type="submit"]').element.disabled).toBe(true)
+    await dialog.find('form').trigger('submit')
+    expect(shipmentService.confirmSwapHandover).not.toHaveBeenCalled()
+    await dialog.find('input[type="checkbox"]').setValue(true)
+    await dialog.find('textarea').setValue(' Đủ hàng ')
+    shipmentService.confirmSwapHandover.mockResolvedValue({ ...SWAP, holder_shipper: NEXT,
+      tasks: [{ ...OLD, shipper: NEXT }] })
+    await dialog.find('form').trigger('submit'); await flush()
+    expect(shipmentService.confirmSwapHandover).toHaveBeenCalledWith('12', 'Đủ hàng', WAITING.updated_at)
+    expect(wrapper.text()).toContain('giữ nguyên lần giao')
+  })
+
+  it('409 người dự kiến bị khóa: tải bản mới và không báo thành công', async () => {
+    const { wrapper } = await setup(WAITING)
+    shipmentService.confirmSwapHandover.mockRejectedValue(new ApiError({ status: 409, code: 'CONFLICT', message: 'Chọn Shipper khác' }))
+    await button(wrapper, 'Xác nhận nhận hàng bàn giao').trigger('click'); await flush()
+    const dialog = openDialog(wrapper)
+    await dialog.find('input[type="checkbox"]').setValue(true)
+    await dialog.find('form').trigger('submit'); await flush()
+    expect(shipmentService.get).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('Chọn Shipper khác')
+    expect(wrapper.findAll('dialog').some((d) => d.element.open)).toBe(false)
+  })
+
+  it('ghi sai lệch giữ chờ; nhận về gửi ghi chú; nhiệm vụ cũ hiện người thay thế', async () => {
+    const { wrapper } = await setup(WAITING)
+    shipmentService.reportSwapIssue.mockResolvedValue(WAITING)
+    await button(wrapper, 'Ghi sai lệch bàn giao').trigger('click'); await flush()
+    await openDialog(wrapper).find('textarea').setValue(' Thiếu kiện ')
+    await openDialog(wrapper).find('form').trigger('submit'); await flush()
+    expect(shipmentService.reportSwapIssue).toHaveBeenCalledWith('12', 'Thiếu kiện', WAITING.updated_at)
+    const recalled = { ...SWAP, status: 'AWAITING_REDELIVERY', holder_locked: true,
+      tasks: [{ ...OLD, status: 'REPLACED', closed_at: OLD.assigned_at, replaced_by: { id: 42, shipper: NEXT } }],
+      allowed_actions: ['RECALL_TO_HUB'] }
+    shipmentService.get.mockResolvedValue(recalled)
+    await wrapper.vm.$router.push('/staff/shipments/13'); await flush()
+    expect(wrapper.text()).toContain('Đã thay thế → Trần Bình')
+    shipmentService.recallToHub.mockResolvedValue({ ...recalled, holder_type: 'HUB', holder_shipper: null, holder_locked: false })
+    await button(wrapper, 'Nhận hàng về điểm tập kết').trigger('click'); await flush()
+    await openDialog(wrapper).find('textarea').setValue(' Đủ hàng ')
+    await openDialog(wrapper).find('form').trigger('submit'); await flush()
+    expect(shipmentService.recallToHub).toHaveBeenCalledWith('13', 'Đủ hàng', SWAP.updated_at)
+  })
+
   it('chờ xác nhận: thẻ Shop, Điều phối "Chưa phát sinh", nút Duyệt/Từ chối', async () => {
     const { wrapper } = await setup()
     expect(wrapper.find('h1').text()).toBe('YC000012')

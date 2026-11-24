@@ -20,3 +20,5 @@ class NotificationKind(models.TextChoices):
     RETURN_AT_HUB = "RETURN_AT_HUB", "Hàng hoàn đã về điểm tập kết"
     RETURN_COMPLETED = "RETURN_COMPLETED", "Shop đã nhận hàng hoàn"
     ACCOUNT_LOCKED_TASKS = "ACCOUNT_LOCKED_TASKS", "Shipper bị khóa còn nhiệm vụ mở"
+    SWAP_HANDOVER_REQUIRED = "SWAP_HANDOVER_REQUIRED", "Cần đưa hàng về để đổi Shipper"  # spec 009 D10
+    SWAP_HANDOVER_REPORTED = "SWAP_HANDOVER_REPORTED", "Shipper đã đưa hàng về để đổi người"  # spec 009 D10

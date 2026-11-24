@@ -38,6 +38,9 @@ export const CHOICES = {
   limits: {
     max_delivery_attempts: 3, cod_max_vnd: 50000000, search_query_max_length: 100, cancel_reason_max_length: 500, reject_reason_max_length: 500,
     task_note_max_length: 500, handover_note_max_length: 500, handover_receiver_name_max_length: 100,
+    location_ping_max_age_seconds: 120, location_ping_max_future_seconds: 60,
+    location_ping_min_interval_seconds: 15, location_ping_max_accuracy_m: 1000,
+    location_stale_seconds: 300, location_poll_interval_seconds: 15, location_retention_days: 30,
   },
   hub: { name: 'Điểm tập kết HTT EXPRESS', address: '1 Tràng Tiền, Hoàn Kiếm', phone: '0241234567' },
 }

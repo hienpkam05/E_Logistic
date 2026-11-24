@@ -14,7 +14,8 @@ export const create = (data) => http.post(base, data)
 // `updatedAt`: updated_at đã tải — backend trả 409 CONFLICT nếu đơn vừa bị thay đổi.
 export const update = (id, data, updatedAt) => http.patch(one(id), { ...data, updated_at: updatedAt })
 export const cancel = (id, reason = '') => http.post(`${one(id)}cancel/`, { reason })
-export const events = (id, { page } = {}) => http.get(`${one(id)}events/`, { params: { page } })
+export const lookup = (code) => http.get(`${base}lookup/`, { params: { code } })
+export const events = (id, { page, ordering } = {}) => http.get(`${one(id)}events/`, { params: { page, ordering } })
 // Nhân viên (spec 005). `updatedAt` của bản đang xem — Shop vừa sửa thì 409 CONFLICT.
 export const approve = (id, updatedAt) => http.post(`${one(id)}approve/`, { updated_at: updatedAt })
 export const reject = (id, reason, updatedAt) => http.post(`${one(id)}reject/`, { reason, updated_at: updatedAt })
@@ -42,3 +43,12 @@ export const reportReturnIssue = (id, reason, updatedAt) =>
 // verified: Nhân viên đã kiểm tra người nhận thuộc Shop / được ủy quyền (D7) — màn hình chỉ gọi khi đã tích.
 export const confirmShopReceived = (id, receiverName, note, updatedAt) =>
   http.post(`${one(id)}confirm-shop-received/`, { receiver_name: receiverName, verified: true, note, updated_at: updatedAt })
+// Đổi Shipper — Nhân viên (spec 009). Màn hình chỉ gọi xác nhận bàn giao sau khi NV tích đã giao hàng.
+export const swapShipper = (id, shipperId, reason, updatedAt) =>
+  http.post(`${one(id)}swap-shipper/`, { shipper_id: shipperId, reason, updated_at: updatedAt })
+export const confirmSwapHandover = (id, discrepancyNote, updatedAt) =>
+  http.post(`${one(id)}confirm-swap-handover/`, { handed_over: true, discrepancy_note: discrepancyNote, updated_at: updatedAt })
+export const reportSwapIssue = (id, reason, updatedAt) =>
+  http.post(`${one(id)}report-swap-issue/`, { reason, updated_at: updatedAt })
+export const recallToHub = (id, discrepancyNote, updatedAt) =>
+  http.post(`${one(id)}recall-to-hub/`, { discrepancy_note: discrepancyNote, updated_at: updatedAt })

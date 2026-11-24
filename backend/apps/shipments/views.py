@@ -15,15 +15,19 @@ from apps.accounts.constants import UserRole
 from apps.accounts.permissions import HasRole
 
 from . import services
-from .constants import MISSING_VERSION_MESSAGE, SHIPMENT_LIST_ORDERINGS
+from .constants import MISSING_VERSION_MESSAGE, PRE_TRANSPORT_ACTIONS, SHIPMENT_LIST_ORDERINGS
 from .models import ShipmentEvent, Ward
 from .permissions import shipments_visible_to
+from .queries import lookup_shipments, pickup_numbers
 from .serializers import (
     ApproveShipmentSerializer,
     CancelShipmentSerializer,
     RejectShipmentSerializer,
     ShipmentDetailSerializer,
     ShipmentEventSerializer,
+    ShipmentEventQuerySerializer,
+    ShipmentLookupSerializer,
+    ShipmentLookupQuerySerializer,
     ShipmentListQuerySerializer,
     ShipmentSummarySerializer,
     ShipmentUpdateSerializer,
@@ -96,6 +100,18 @@ class ShipmentCollectionView(ListAPIView):
         return Response(data, status=status.HTTP_201_CREATED)
 
 
+class ShipmentLookupView(APIView):
+    """UC03.1: tra cứu đúng mã trong phạm vi được xem; không lộ có đơn ngoài quyền."""
+
+    permission_classes = [CanViewShipments]
+
+    def get(self, request):
+        query = ShipmentLookupQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        shipment = get_object_or_404(lookup_shipments(request.user, query.validated_data["code"]))
+        return Response(ShipmentLookupSerializer(shipment, context={"request": request}).data)
+
+
 class ShipmentDetailView(APIView):
     """GET: chi tiết (Shop: UC05.4; Nhân viên: UC05.7). PATCH: sửa yêu cầu (UC05.1, chỉ Shop).
 
@@ -165,8 +181,21 @@ class ShipmentEventListView(ListAPIView):
     serializer_class = ShipmentEventSerializer
 
     def get_queryset(self):
-        shipment = get_object_or_404(shipments_visible_to(self.request.user), pk=self.kwargs["pk"])
-        return ShipmentEvent.objects.filter(shipment=shipment).select_related("actor")
+        self.shipment = get_object_or_404(shipments_visible_to(self.request.user), pk=self.kwargs["pk"])
+        query = ShipmentEventQuerySerializer(data=self.request.query_params)
+        query.is_valid(raise_exception=True)
+        events = ShipmentEvent.objects.filter(shipment=self.shipment)
+        self.has_transport_activity = events.exclude(action__in=PRE_TRANSPORT_ACTIONS).exists()
+        self.pickup_numbers = pickup_numbers(self.shipment)
+        return events.select_related("actor", "task").order_by(*SHIPMENT_LIST_ORDERINGS[query.validated_data["ordering"]])
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "pickup_numbers": getattr(self, "pickup_numbers", {})}
+
+    def get_paginated_response(self, data):
+        response = super().get_paginated_response(data)
+        response.data["has_transport_activity"] = self.has_transport_activity
+        return response
 
 
 def detail_response(request, pk):
@@ -178,5 +207,6 @@ def detail_response(request, pk):
         from apps.dispatch.models import Task
 
         queryset = queryset.select_related("holder_shipper").prefetch_related(
-            Prefetch("tasks", queryset=Task.objects.select_related("shipper", "assigned_by", "result")))
+            Prefetch("tasks", queryset=Task.objects.select_related(
+                "shipper", "assigned_by", "result", "swap_candidate", "replaced_by__shipper")))
     return Response(ShipmentDetailSerializer(get_object_or_404(queryset, pk=pk), context={"request": request}).data)

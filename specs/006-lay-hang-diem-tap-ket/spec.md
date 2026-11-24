@@ -137,4 +137,6 @@ Mọi thao tác theo quy ước spec 001 mục 3.6:
   - Chi tiết nhiệm vụ giao mới hiện người nhận / COD.
 - **Spec 008:** `Handover.kind` thêm loại hoàn về điểm tập kết / Shop nhận hàng hoàn.
 - **Spec 009:** `TASK_REPLACE`, `TASK_START_SWAP` dùng `replaced_by`, `handover_reported_at`; xử lý nhiệm vụ `needs_attention`.
-  - **Việc treo từ spec 003 (chưa làm ở 006):** hộp khóa Shipper nêu **số nhiệm vụ đang mở** (UC06.4 bước 2). Cần thêm dữ liệu cho API tài khoản mà `accounts` vẫn không import `dispatch` (vd: dispatch cung cấp số liệu qua hook / endpoint riêng). Gỡ `needs_attention` khi đã đổi Shipper.
+  - **Đã xử lý ở spec 009 (23/11/2026):** hộp khóa Shipper có danh sách/số nhiệm vụ mở qua endpoint riêng của dispatch,
+    không thêm phụ thuộc accounts → dispatch. Đổi người đóng nhiệm vụ cũ, xóa `needs_attention`, nhiệm vụ mới sạch;
+    đã có kiểm quyền, gửi lại, đồng thời và kiểm thử trình duyệt trên test DB.

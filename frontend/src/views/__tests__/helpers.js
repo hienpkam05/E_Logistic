@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 const Blank = { template: '<div class="blank-route" />' }
 const ROUTE_NAMES = [
+  ['/tracking', 'tracking'],
   ['/login', 'login'], ['/forgot-password', 'forgot-password'], ['/account/profile', 'profile'],
   ['/account/password', 'change-password'], ['/notifications', 'notifications'],
   ['/shop', 'shop-home'], ['/staff', 'staff-home'], ['/shipper', 'shipper-home'],

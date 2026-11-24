@@ -1,0 +1,99 @@
+﻿14 objects imported automatically (use -v 2 for details).
+
+SHOP, tracking_code, 20,000 rows, no forced planner settings:
+Nested Loop  (cost=8.74..23.67 rows=1 width=704) (actual time=0.291..0.512 rows=1 loops=1)
+  Buffers: shared hit=185
+  InitPlan 1
+    ->  Limit  (cost=0.29..8.30 rows=1 width=8) (actual time=0.007..0.008 rows=1 loops=1)
+          Buffers: shared hit=3
+          ->  Index Scan using shipments_shipment_tracking_code_b70eb70b_like on shipments_shipment u0  (cost=0.29..8.30 rows=1 width=8) (actual time=0.007..0.007 rows=1 loops=1)
+                Index Cond: ((tracking_code)::text = 'HTT261123ZTE34'::text)
+                Buffers: shared hit=3
+  ->  Nested Loop  (cost=0.29..7.14 rows=1 width=419) (actual time=0.287..0.507 rows=1 loops=1)
+        Buffers: shared hit=183
+        ->  Index Scan using ship_shop_created_idx on shipments_shipment  (cost=0.29..6.06 rows=1 width=226) (actual time=0.278..0.496 rows=1 loops=1)
+              Index Cond: ((shop_id = '-2'::integer) AND (id = (InitPlan 1).col1))
+              Buffers: shared hit=182
+        ->  Seq Scan on accounts_user  (cost=0.00..1.07 rows=1 width=193) (actual time=0.007..0.008 rows=1 loops=1)
+              Filter: (id = '-2'::integer)
+              Rows Removed by Filter: 7
+              Buffers: shared hit=1
+  ->  Index Scan using shipments_ward_pkey on shipments_ward  (cost=0.15..8.17 rows=1 width=285) (actual time=0.003..0.003 rows=1 loops=1)
+        Index Cond: (id = shipments_shipment.delivery_ward_id)
+        Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=67
+Planning Time: 0.320 ms
+Execution Time: 0.537 ms
+SHOP, request_code, 20,000 rows, no forced planner settings:
+Nested Loop  (cost=8.74..23.67 rows=1 width=704) (actual time=0.198..0.459 rows=1 loops=1)
+  Buffers: shared hit=185
+  InitPlan 1
+    ->  Limit  (cost=0.29..8.30 rows=1 width=8) (actual time=0.007..0.008 rows=1 loops=1)
+          Buffers: shared hit=3
+          ->  Index Scan using shipments_shipment_request_code_9bf11ba4_like on shipments_shipment u0  (cost=0.29..8.30 rows=1 width=8) (actual time=0.007..0.007 rows=1 loops=1)
+                Index Cond: ((request_code)::text = 'YC70010000'::text)
+                Buffers: shared hit=3
+  ->  Nested Loop  (cost=0.29..7.14 rows=1 width=419) (actual time=0.194..0.454 rows=1 loops=1)
+        Buffers: shared hit=183
+        ->  Index Scan using ship_shop_created_idx on shipments_shipment  (cost=0.29..6.06 rows=1 width=226) (actual time=0.188..0.447 rows=1 loops=1)
+              Index Cond: ((shop_id = '-2'::integer) AND (id = (InitPlan 1).col1))
+              Buffers: shared hit=182
+        ->  Seq Scan on accounts_user  (cost=0.00..1.07 rows=1 width=193) (actual time=0.006..0.006 rows=1 loops=1)
+              Filter: (id = '-2'::integer)
+              Rows Removed by Filter: 7
+              Buffers: shared hit=1
+  ->  Index Scan using shipments_ward_pkey on shipments_ward  (cost=0.15..8.17 rows=1 width=285) (actual time=0.003..0.003 rows=1 loops=1)
+        Index Cond: (id = shipments_shipment.delivery_ward_id)
+        Buffers: shared hit=2
+Planning Time: 0.175 ms
+Execution Time: 0.479 ms
+ADMIN, tracking_code, 20,000 rows, no forced planner settings:
+Nested Loop  (cost=8.74..25.97 rows=1 width=704) (actual time=0.031..0.033 rows=1 loops=1)
+  Buffers: shared hit=9
+  InitPlan 1
+    ->  Limit  (cost=0.29..8.30 rows=1 width=8) (actual time=0.009..0.010 rows=1 loops=1)
+          Buffers: shared hit=3
+          ->  Index Scan using shipments_shipment_tracking_code_b70eb70b_like on shipments_shipment u0  (cost=0.29..8.30 rows=1 width=8) (actual time=0.008..0.009 rows=1 loops=1)
+                Index Cond: ((tracking_code)::text = 'HTT261123ZTE34'::text)
+                Buffers: shared hit=3
+  ->  Nested Loop  (cost=0.29..9.44 rows=1 width=419) (actual time=0.027..0.028 rows=1 loops=1)
+        Join Filter: (shipments_shipment.shop_id = accounts_user.id)
+        Rows Removed by Join Filter: 6
+        Buffers: shared hit=7
+        ->  Index Scan using shipments_shipment_pkey on shipments_shipment  (cost=0.29..8.30 rows=1 width=226) (actual time=0.016..0.017 rows=1 loops=1)
+              Index Cond: (id = (InitPlan 1).col1)
+              Buffers: shared hit=6
+        ->  Seq Scan on accounts_user  (cost=0.00..1.06 rows=6 width=193) (actual time=0.006..0.008 rows=7 loops=1)
+              Buffers: shared hit=1
+  ->  Index Scan using shipments_ward_pkey on shipments_ward  (cost=0.15..8.17 rows=1 width=285) (actual time=0.003..0.003 rows=1 loops=1)
+        Index Cond: (id = shipments_shipment.delivery_ward_id)
+        Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=6
+Planning Time: 0.327 ms
+Execution Time: 0.065 ms
+ADMIN, request_code, 20,000 rows, no forced planner settings:
+Nested Loop  (cost=8.74..25.97 rows=1 width=704) (actual time=0.026..0.028 rows=1 loops=1)
+  Buffers: shared hit=9
+  InitPlan 1
+    ->  Limit  (cost=0.29..8.30 rows=1 width=8) (actual time=0.009..0.009 rows=1 loops=1)
+          Buffers: shared hit=3
+          ->  Index Scan using shipments_shipment_request_code_9bf11ba4_like on shipments_shipment u0  (cost=0.29..8.30 rows=1 width=8) (actual time=0.008..0.009 rows=1 loops=1)
+                Index Cond: ((request_code)::text = 'YC70010000'::text)
+                Buffers: shared hit=3
+  ->  Nested Loop  (cost=0.29..9.44 rows=1 width=419) (actual time=0.022..0.023 rows=1 loops=1)
+        Join Filter: (shipments_shipment.shop_id = accounts_user.id)
+        Rows Removed by Join Filter: 6
+        Buffers: shared hit=7
+        ->  Index Scan using shipments_shipment_pkey on shipments_shipment  (cost=0.29..8.30 rows=1 width=226) (actual time=0.014..0.014 rows=1 loops=1)
+              Index Cond: (id = (InitPlan 1).col1)
+              Buffers: shared hit=6
+        ->  Seq Scan on accounts_user  (cost=0.00..1.06 rows=6 width=193) (actual time=0.005..0.006 rows=7 loops=1)
+              Buffers: shared hit=1
+  ->  Index Scan using shipments_ward_pkey on shipments_ward  (cost=0.15..8.17 rows=1 width=285) (actual time=0.002..0.002 rows=1 loops=1)
+        Index Cond: (id = shipments_shipment.delivery_ward_id)
+        Buffers: shared hit=2
+Planning Time: 0.209 ms
+Execution Time: 0.050 ms
+Rollback sạch; sequence giữ nguyên.

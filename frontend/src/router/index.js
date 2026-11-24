@@ -23,6 +23,8 @@ const routes = [
     meta: { title: 'Thông báo' } },
 
   // Trang chủ theo vai trò
+  { path: '/tracking', name: 'tracking', component: () => import('../views/common/TrackingView.vue'),
+    meta: { roles: [ROLES.SHOP, ROLES.ADMIN], title: 'Tra cứu vận đơn' } },
   { path: '/shop', name: 'shop-home', component: () => import('../views/shop/ShopHomeView.vue'),
     meta: { roles: [ROLES.SHOP] } },
   // Yêu cầu gửi hàng (spec 004)

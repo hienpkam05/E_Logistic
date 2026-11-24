@@ -11,6 +11,14 @@ const block = source.split('class ShipmentAction(models.TextChoices):')[1].split
 const backendCodes = [...block.matchAll(/^\s+([A-Z_]+) = "([A-Z_]+)"/gm)].map((m) => m[2])
 
 describe('shipmentActions', () => {
+  it('có đủ 5 hành động đổi Shipper của spec 009, dùng được qua can()', () => {
+    for (const code of ['SWAP_SHIPPER', 'CONFIRM_SWAP_HANDOVER', 'REPORT_SWAP_ISSUE', 'REPORT_SWAP_HANDOVER', 'RECALL_TO_HUB']) {
+      expect(SHIPMENT_ACTION[code]).toBe(code)
+      expect(backendCodes).toContain(SHIPMENT_ACTION[code])
+      expect(can({ allowed_actions: [code] }, SHIPMENT_ACTION[code])).toBe(true)
+    }
+  })
+
   it('mọi mã có trong ShipmentAction backend, key = value', () => {
     expect(backendCodes.length).toBeGreaterThan(5)
     for (const [key, value] of Object.entries(SHIPMENT_ACTION)) {

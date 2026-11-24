@@ -65,6 +65,9 @@ class ChoicesEndpointTests(TestCase):
             "package_count_min": 1, "package_count_max": 99, "weight_grams_max": 100_000,
             "search_query_max_length": 100, "cancel_reason_max_length": 500, "reject_reason_max_length": 500,
             "task_note_max_length": 500, "handover_note_max_length": 500, "handover_receiver_name_max_length": 100,
+            "location_ping_max_age_seconds": 120, "location_ping_max_future_seconds": 60,
+            "location_ping_min_interval_seconds": 15, "location_ping_max_accuracy_m": 1000,
+            "location_stale_seconds": 300, "location_poll_interval_seconds": 15, "location_retention_days": 30,
         })
 
     def test_same_for_logged_in_user(self):

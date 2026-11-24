@@ -1,4 +1,5 @@
-"""Nghiệp vụ điều phối lấy hàng (spec 006), giao hàng / COD / giao lại (spec 007), hoàn hàng (spec 008). Đổi trạng thái chỉ qua SHIPMENT_TRANSITIONS / TASK_TRANSITIONS.
+"""Điều phối lấy (006), giao / COD (007), hoàn (008), đổi Shipper (009).
+Đổi trạng thái chỉ qua SHIPMENT_TRANSITIONS / TASK_TRANSITIONS.
 
 Quy ước (spec 001 mục 3.6):
 - Khóa theo thứ tự cố định ĐƠN → USER (Shipper được chọn) → NHIỆM VỤ để hai thao tác chạy song song không deadlock.
@@ -22,6 +23,16 @@ from apps.shipments.rules import guard_allows, has_delivery_attempts_left
 from apps.shipments.services import check_staff_action, lock_visible
 
 from .constants import (
+    SWAP_SAME_SHIPPER_MESSAGE,
+    SWAP_NOT_ALLOWED_MESSAGE,
+    SWAP_NOT_PENDING_MESSAGE,
+    SWAP_CANDIDATE_UNAVAILABLE_MESSAGE,
+    RECALL_NOT_ALLOWED_MESSAGE,
+    SWAP_REPLACED_TITLE,
+    SWAP_HANDOVER_REQUIRED_TITLE,
+    SWAP_HANDOVER_REQUIRED_BODY,
+    SWAP_HANDOVER_REPORTED_TITLE,
+    SWAP_HANDOVER_REPORTED_BODY,
     ALREADY_ASSIGNED_MESSAGE,
     RETURN_HANDOVER_REPORTED_BODY,
     RETURN_HANDOVER_REPORTED_TITLE,
@@ -443,6 +454,160 @@ def confirm_shop_received(staff, shipment_id, receiver_name, note, expected_upda
     return shipment
 
 
+# ---------------------------------------------------------------- Spec 009: Nhân viên đổi Shipper / nhận hàng về
+
+def _notify_replacement(shipment, old_task, new_task, reason):
+    notify(old_task.shipper, NotificationKind.TASK_REPLACED,
+           SWAP_REPLACED_TITLE.format(code=shipment.display_code), REASON_BODY.format(reason=reason) if reason else "",
+           payload={"shipment_id": shipment.pk, "task_id": old_task.pk})
+    if new_task.type == TaskType.PICKUP:
+        title = TASK_ASSIGNED_TITLE
+        body = TASK_ASSIGNED_BODY.format(address=shipment.pickup_address, ward=shipment.pickup_ward.name,
+                                         shop=shipment.sender_name)
+    else:
+        title = DELIVERY_TASK_ASSIGNED_TITLE
+        body = DELIVERY_TASK_ASSIGNED_BODY.format(receiver=shipment.receiver_name, address=shipment.delivery_address,
+                                                  ward=shipment.delivery_ward.name, attempt=new_task.attempt_no,
+                                                  max=MAX_DELIVERY_ATTEMPTS)
+    notify(new_task.shipper, NotificationKind.TASK_ASSIGNED, title.format(code=shipment.display_code), body,
+           payload={"shipment_id": shipment.pk, "task_id": new_task.pk})
+
+
+def _replace_task(shipment, task, shipper, staff, action):
+    """Đóng trước khi tạo để giữ partial unique; không ghi TaskResult cho nhiệm vụ bị thay."""
+    rule = resolve_transition(TASK_TRANSITIONS, action, task.status, staff.role)
+    task.status, task.closed_at, task.swap_candidate = rule.target, timezone.now(), None
+    task.needs_attention = False
+    task.save(update_fields=["status", "closed_at", "swap_candidate", "needs_attention", "updated_at"])
+    new_task = _create_task(shipment, task.type, shipper, staff, attempt_no=task.attempt_no)
+    task.replaced_by = new_task
+    task.save(update_fields=["replaced_by", "updated_at"])
+    return new_task
+
+
+def _lock_swap_users(*user_ids):
+    """Khóa cả người cũ và mới trước task, theo id để không đảo khóa khi đổi chéo hai đơn.
+
+    accounts.lock_account khóa user rồi task; giữ thứ tự này cả khi ghi FK trong bàn giao / thông báo.
+    Người cũ có thể đã bị khóa, chỉ người mới cần kiểm còn hoạt động.
+    """
+    return {user.pk: user for user in User.objects.select_for_update().filter(pk__in=user_ids).order_by("pk")}
+
+
+def swap_shipper(staff, shipment_id, shipper_id, reason, expected_updated_at):
+    with transaction.atomic():
+        shipment = lock_visible(staff, shipment_id)
+        # Đơn đã khóa: đọc chưa khóa nhiệm vụ để kiểm gửi lại / chọn user trước khi khóa task.
+        current = shipment.tasks.filter(status__in=OPEN_TASK_STATUSES).first()
+        last = shipment.events.order_by("-created_at", "-id").first()
+        if current is not None:
+            if current.status == TaskStatus.PENDING_SWAP_HANDOVER and current.swap_candidate_id == shipper_id:
+                return shipment
+            if (current.type == TaskType.PICKUP and current.shipper_id == shipper_id and last is not None
+                    and last.action == ShipmentAction.SWAP_SHIPPER and last.task_id is not None
+                    and Task.objects.filter(pk=last.task_id, replaced_by=current).exists()):
+                return shipment
+        _check(staff, shipment, ShipmentAction.SWAP_SHIPPER, expected_updated_at)
+        _require_guard(shipment, ShipmentAction.SWAP_SHIPPER, SWAP_NOT_ALLOWED_MESSAGE)
+        if current.shipper_id == shipper_id:
+            raise BusinessError(ErrorCode.VALIDATION_ERROR, SWAP_SAME_SHIPPER_MESSAGE,
+                                fields={"shipper_id": [SWAP_SAME_SHIPPER_MESSAGE]})
+        _lock_swap_users(current.shipper_id, shipper_id)
+        shipper = _lock_available_shipper(shipper_id)
+        task = _open_task(shipment)
+        changes = {"shipper": {"from": _person(task.shipper), "to": _person(shipper)}}
+        if task.type == TaskType.PICKUP:
+            new_task = _replace_task(shipment, task, shipper, staff, TaskAction.TASK_REPLACE)
+            _notify_replacement(shipment, task, new_task, reason)
+        else:
+            starting = task.status == TaskStatus.ACTIVE
+            previous_candidate = _person(task.swap_candidate)
+            if starting:
+                task.status = resolve_transition(TASK_TRANSITIONS, TaskAction.TASK_START_SWAP,
+                                                 task.status, staff.role).target
+            task.swap_candidate = shipper
+            task.save(update_fields=["status", "swap_candidate", "updated_at"])
+            changes = {"swap_candidate": {"from": previous_candidate, "to": _person(shipper)}}
+            if starting:
+                notify(task.shipper, NotificationKind.SWAP_HANDOVER_REQUIRED,
+                       SWAP_HANDOVER_REQUIRED_TITLE.format(code=shipment.display_code),
+                       SWAP_HANDOVER_REQUIRED_BODY.format(hub=settings.HUB["name"], address=settings.HUB["address"],
+                                                          reason=reason),
+                       payload={"shipment_id": shipment.pk, "task_id": task.pk})
+        shipment.save(update_fields=["updated_at"])
+        _record(shipment, ShipmentAction.SWAP_SHIPPER, shipment.status, staff, task=task, reason=reason,
+                changes=changes)
+    return shipment
+
+
+def confirm_swap_handover(staff, shipment_id, discrepancy_note, expected_updated_at):
+    with transaction.atomic():
+        shipment = lock_visible(staff, shipment_id)
+        if _last_event_is(shipment, ShipmentAction.CONFIRM_SWAP_HANDOVER, staff):
+            return shipment
+        _check(staff, shipment, ShipmentAction.CONFIRM_SWAP_HANDOVER, expected_updated_at)
+        _require_guard(shipment, ShipmentAction.CONFIRM_SWAP_HANDOVER, SWAP_NOT_PENDING_MESSAGE)
+        pending = shipment.tasks.get(status=TaskStatus.PENDING_SWAP_HANDOVER)
+        candidate = _lock_swap_users(pending.shipper_id, pending.swap_candidate_id)[pending.swap_candidate_id]
+        if candidate.role != UserRole.SHIPPER or not candidate.is_active:
+            raise BusinessError(ErrorCode.CONFLICT,
+                                SWAP_CANDIDATE_UNAVAILABLE_MESSAGE.format(name=candidate.full_name))
+        task = _open_task(shipment)
+        Handover.objects.create(shipment=shipment, task=task, kind=HandoverKind.REASSIGN_INTAKE,
+                                from_shipper=task.shipper, received_by=staff, received_at=timezone.now(),
+                                discrepancy_note=discrepancy_note)
+        previous_holder = _holder_value(shipment)
+        new_task = _replace_task(shipment, task, candidate, staff, TaskAction.TASK_CONFIRM_SWAP)
+        shipment.holder_type, shipment.holder_shipper = HolderType.SHIPPER, candidate
+        shipment.save(update_fields=["holder_type", "holder_shipper", "updated_at"])
+        changes = {"holder": {"from": previous_holder, "to": _person(candidate)},
+                   "shipper": {"from": _person(task.shipper), "to": _person(candidate)}}
+        if discrepancy_note:
+            changes["discrepancy_note"] = {"from": None, "to": discrepancy_note}
+        _record(shipment, ShipmentAction.CONFIRM_SWAP_HANDOVER, shipment.status, staff, task=task, changes=changes)
+        swap_reason = (shipment.events.filter(action=ShipmentAction.SWAP_SHIPPER, task=task)
+                       .order_by("-created_at", "-id").values_list("reason", flat=True).first())
+        _notify_replacement(shipment, task, new_task, swap_reason)
+    return shipment
+
+
+def report_swap_issue(staff, shipment_id, reason, expected_updated_at):
+    with transaction.atomic():
+        shipment = lock_visible(staff, shipment_id)
+        last = shipment.events.order_by("-created_at", "-id").first()
+        if (last is not None and last.action == ShipmentAction.REPORT_SWAP_ISSUE
+                and last.actor_id == staff.pk and last.reason == reason):
+            return shipment
+        _check(staff, shipment, ShipmentAction.REPORT_SWAP_ISSUE, expected_updated_at)
+        _require_guard(shipment, ShipmentAction.REPORT_SWAP_ISSUE, SWAP_NOT_PENDING_MESSAGE)
+        shipment.save(update_fields=["updated_at"])
+        _record(shipment, ShipmentAction.REPORT_SWAP_ISSUE, shipment.status, staff, task=_open_task(shipment),
+                reason=reason)
+    return shipment
+
+
+def recall_to_hub(staff, shipment_id, discrepancy_note, expected_updated_at):
+    with transaction.atomic():
+        shipment = lock_visible(staff, shipment_id)
+        if (shipment.holder_type == HolderType.HUB
+                and _last_event_is(shipment, ShipmentAction.RECALL_TO_HUB, staff)):
+            return shipment
+        _check(staff, shipment, ShipmentAction.RECALL_TO_HUB, expected_updated_at)
+        _require_guard(shipment, ShipmentAction.RECALL_TO_HUB, RECALL_NOT_ALLOWED_MESSAGE)
+        _lock_swap_users(shipment.holder_shipper_id)
+        previous_holder = _holder_value(shipment)
+        Handover.objects.create(shipment=shipment, kind=HandoverKind.REASSIGN_INTAKE,
+                                from_shipper=shipment.holder_shipper, received_by=staff,
+                                received_at=timezone.now(), discrepancy_note=discrepancy_note)
+        shipment.holder_type, shipment.holder_shipper = HolderType.HUB, None
+        shipment.save(update_fields=["holder_type", "holder_shipper", "updated_at"])
+        changes = {"holder": {"from": previous_holder, "to": _holder_value(shipment)}}
+        if discrepancy_note:
+            changes["discrepancy_note"] = {"from": None, "to": discrepancy_note}
+        _record(shipment, ShipmentAction.RECALL_TO_HUB, shipment.status, staff, changes=changes)
+    return shipment
+
+
 # ---------------------------------------------------------------- D9 Khóa Shipper còn nhiệm vụ mở
 
 def flag_open_tasks_of_locked_shipper(actor, user):
@@ -467,12 +632,18 @@ def flag_open_tasks_of_locked_shipper(actor, user):
 
 # ---------------------------------------------------------------- UC04.2 / UC04.3 Shipper ghi kết quả lấy hàng
 
-def _lock_own_task(shipper, task_id):
-    """Khóa ĐƠN rồi NHIỆM VỤ (cùng thứ tự với thao tác Nhân viên). Nhiệm vụ không phải của mình → 404 (UC04.1 E1)."""
+def _lock_own_task(shipper, task_id, *, lock_actor=False):
+    """Khóa ĐƠN → (USER nếu lock_actor) → NHIỆM VỤ. Không phải nhiệm vụ của mình → 404 (UC04.1 E1)."""
     shipment_id = tasks_visible_to(shipper).filter(pk=task_id).values_list("shipment_id", flat=True).first()
     if shipment_id is None:
         raise BusinessError(ErrorCode.NOT_FOUND)
     shipment = Shipment.objects.select_for_update().get(pk=shipment_id)
+    if lock_actor:
+        # Báo bàn giao ghi Event.actor = Shipper: khóa user trước task để không đua FK lúc commit
+        # với accounts.lock_account (user → task), đồng thời kiểm lại tài khoản sau khi chờ khóa.
+        actor = _lock_swap_users(shipper.pk)[shipper.pk]
+        if not actor.is_active:
+            raise BusinessError(ErrorCode.NOT_AUTHENTICATED)
     task = tasks_visible_to(shipper).select_for_update().filter(pk=task_id).first()
     if task is None:
         raise BusinessError(ErrorCode.NOT_FOUND)
@@ -632,30 +803,41 @@ def fail_delivery(shipper, task_id, reason_code, note):
 
 # ---------------------------------------------------------------- Spec 008: UC04.9 bước 1–3 Shipper báo bàn giao
 
-def report_return_handover(shipper, task_id):
-    """Shipper đã đưa hàng hoàn về điểm tập kết và đề nghị tiếp nhận (D4).
-
-    Chỉ ghi `handover_reported_at` + mốc lịch sử + báo mọi Nhân viên đang hoạt động; nhiệm vụ vẫn mở, đơn vẫn Đang hoàn
-    (A1) — Nhân viên mới xác nhận tiếp nhận (BR1). Không tăng phiên bản đơn: NV tiếp nhận không phụ thuộc lần báo này
-    (D5). Đã báo rồi → trả hiện tại.
-    """
+def _report_handover(shipper, task_id, *, task_type, statuses, action, kind, title, body):
+    """Báo đã đưa về, chưa phải xác nhận nhận hàng; gửi lại không ghi trùng, kể cả sau khi NV đóng nhiệm vụ."""
     with transaction.atomic():
-        shipment, task = _lock_own_task(shipper, task_id)
-        if task.type == TaskType.RETURN and task.handover_reported_at is not None:
+        shipment, task = _lock_own_task(shipper, task_id, lock_actor=True)
+        if task.type == task_type and task.handover_reported_at is not None:
             return task
-        if task.type != TaskType.RETURN or not task.is_open:
+        if task.type != task_type or task.status not in statuses:
             raise BusinessError(ErrorCode.INVALID_TRANSITION, TASK_CLOSED_MESSAGE)
         try:
-            resolve_transition(SHIPMENT_TRANSITIONS, ShipmentAction.REPORT_RETURN_HANDOVER, shipment.status,
-                               shipper.role)
+            resolve_transition(SHIPMENT_TRANSITIONS, action, shipment.status, shipper.role)
         except BusinessError as exc:
             if exc.code == ErrorCode.INVALID_TRANSITION:
                 raise BusinessError(ErrorCode.INVALID_TRANSITION, TASK_CLOSED_MESSAGE) from None
             raise
         task.handover_reported_at = timezone.now()
         task.save(update_fields=["handover_reported_at", "updated_at"])
-        _record(shipment, ShipmentAction.REPORT_RETURN_HANDOVER, shipment.status, shipper, task=task)
-        notify(list(_active_staff()), NotificationKind.RETURN_HANDOVER_REPORTED,
-               RETURN_HANDOVER_REPORTED_TITLE.format(name=shipper.full_name, code=shipment.display_code),
-               RETURN_HANDOVER_REPORTED_BODY, payload={"shipment_id": shipment.pk})
+        _record(shipment, action, shipment.status, shipper, task=task)
+        notify(list(_active_staff()), kind, title.format(name=shipper.full_name, code=shipment.display_code),
+               body, payload={"shipment_id": shipment.pk})
     return task
+
+
+def report_return_handover(shipper, task_id):
+    """Spec 008 D4–D5: không tăng phiên bản đơn, Nhân viên vẫn tiếp nhận được trên bản đang mở."""
+    return _report_handover(
+        shipper, task_id, task_type=TaskType.RETURN, statuses=OPEN_TASK_STATUSES,
+        action=ShipmentAction.REPORT_RETURN_HANDOVER, kind=NotificationKind.RETURN_HANDOVER_REPORTED,
+        title=RETURN_HANDOVER_REPORTED_TITLE, body=RETURN_HANDOVER_REPORTED_BODY,
+    )
+
+
+def report_swap_handover(shipper, task_id):
+    """UC06.8 A1.3: chỉ người cũ báo nhiệm vụ giao chờ đổi; chưa chuyển người giữ / cấp quyền người mới."""
+    return _report_handover(
+        shipper, task_id, task_type=TaskType.DELIVERY, statuses={TaskStatus.PENDING_SWAP_HANDOVER},
+        action=ShipmentAction.REPORT_SWAP_HANDOVER, kind=NotificationKind.SWAP_HANDOVER_REPORTED,
+        title=SWAP_HANDOVER_REPORTED_TITLE, body=SWAP_HANDOVER_REPORTED_BODY,
+    )

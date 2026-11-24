@@ -30,6 +30,12 @@ export const SHIPMENT_ACTION = Object.freeze({
   CONFIRM_SHOP_RECEIVED: 'CONFIRM_SHOP_RECEIVED',
   // … và Shipper (trên nhiệm vụ hoàn)
   REPORT_RETURN_HANDOVER: 'REPORT_RETURN_HANDOVER',
+  // Đổi Shipper (spec 009): Nhân viên và Shipper cũ báo bàn giao.
+  SWAP_SHIPPER: 'SWAP_SHIPPER',
+  CONFIRM_SWAP_HANDOVER: 'CONFIRM_SWAP_HANDOVER',
+  REPORT_SWAP_ISSUE: 'REPORT_SWAP_ISSUE',
+  REPORT_SWAP_HANDOVER: 'REPORT_SWAP_HANDOVER',
+  RECALL_TO_HUB: 'RECALL_TO_HUB',
 })
 
 // Giá trị tham số `ordering` của danh sách vận đơn (SHIPMENT_LIST_ORDERINGS ở backend — test đối chiếu).

@@ -6,7 +6,7 @@ Bảng chuyển trạng thái bám theo docs/HTT_EXPRESS_Checklist_chuc_nang.md 
 from django.db import models
 
 from apps.accounts.constants import UserRole
-from apps.core.transitions import transition
+from apps.core.transitions import KEEP, transition
 
 
 class ShipmentStatus(models.TextChoices):
@@ -72,9 +72,21 @@ class ShipmentAction(models.TextChoices):
     # Spec 008: không đổi trạng thái nhưng cần mốc lịch sử → đi qua bảng như UPDATE_REQUEST.
     REPORT_RETURN_HANDOVER = "REPORT_RETURN_HANDOVER", "Shipper báo đã đưa hàng hoàn về"
     REPORT_RETURN_ISSUE = "REPORT_RETURN_ISSUE", "Ghi sai lệch hàng hoàn"
+    # Spec 009 — đổi Shipper / phân công lại (UC06.8): đều giữ nguyên trạng thái vận đơn (KEEP).
+    SWAP_SHIPPER = "SWAP_SHIPPER", "Đổi Shipper"
+    CONFIRM_SWAP_HANDOVER = "CONFIRM_SWAP_HANDOVER", "Xác nhận nhận hàng bàn giao đổi Shipper"
+    REPORT_SWAP_ISSUE = "REPORT_SWAP_ISSUE", "Ghi sai lệch bàn giao đổi Shipper"
+    REPORT_SWAP_HANDOVER = "REPORT_SWAP_HANDOVER", "Shipper báo đã đưa hàng về để đổi người"
+    RECALL_TO_HUB = "RECALL_TO_HUB", "Nhận hàng về điểm tập kết"
 
 
 S = ShipmentStatus
+# Spec 010 D4: chỉ có các mốc này thì chưa phát sinh vận chuyển. Xét toàn đơn, không xét từng trang lịch sử.
+PRE_TRANSPORT_ACTIONS = frozenset({
+    ShipmentAction.CREATE_REQUEST, ShipmentAction.UPDATE_REQUEST, ShipmentAction.CANCEL_REQUEST,
+    ShipmentAction.APPROVE_REQUEST, ShipmentAction.REJECT_REQUEST,
+})
+
 A = ShipmentAction
 SHOP, ADMIN, SHIPPER = UserRole.SHOP, UserRole.ADMIN, UserRole.SHIPPER
 
@@ -107,6 +119,12 @@ SHIPMENT_TRANSITIONS = {
     A.CONFIRM_SHOP_RECEIVED: transition([S.AWAITING_SHOP_PICKUP], S.RETURNED_TO_SHOP, [ADMIN]),  # UC04.11
     A.REPORT_RETURN_HANDOVER: transition([S.RETURNING], S.RETURNING, [SHIPPER]),            # UC04.9 bước 1–3, A1
     A.REPORT_RETURN_ISSUE: transition([S.RETURNING], S.RETURNING, [ADMIN]),                 # UC04.9 E1
+    # Spec 009 (UC06.8) — KEEP: ở nguyên trạng thái. Điều kiện theo nhiệm vụ / nơi giữ hàng ở shipments/rules.py.
+    A.SWAP_SHIPPER: transition([S.PICKUP_ASSIGNED, S.OUT_FOR_DELIVERY], KEEP, [ADMIN]),     # bước 1–7, A1.1–A1.2
+    A.CONFIRM_SWAP_HANDOVER: transition([S.OUT_FOR_DELIVERY], KEEP, [ADMIN]),              # A1.4–A1.5
+    A.REPORT_SWAP_ISSUE: transition([S.OUT_FOR_DELIVERY], KEEP, [ADMIN]),                  # E1.1
+    A.REPORT_SWAP_HANDOVER: transition([S.OUT_FOR_DELIVERY], KEEP, [SHIPPER]),             # A1.3
+    A.RECALL_TO_HUB: transition([S.AWAITING_REDELIVERY, S.AWAITING_RETURN], KEEP, [ADMIN]),  # UC06.6 A2, 06.7 A1.1
 }
 
 del S, A, SHOP, ADMIN, SHIPPER

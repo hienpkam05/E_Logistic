@@ -1,6 +1,6 @@
 <script setup>
 // UC05.4 chi tiết, UC05.1 sửa, UC05.5 hủy — của Shop. Nút theo allowed_actions từ backend.
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppIcon from '../../components/common/AppIcon.vue'
 import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
@@ -10,6 +10,7 @@ import HubCard from '../../components/dispatch/HubCard.vue'
 import ShipmentEventList from '../../components/shipments/ShipmentEventList.vue'
 import ShipmentForm from '../../components/shipments/ShipmentForm.vue'
 import ShipmentInfoCards from '../../components/shipments/ShipmentInfoCards.vue'
+import LiveLocationMap from '../../components/tracking/LiveLocationMap.vue'
 import { API_ERROR } from '../../services/http'
 import * as shipmentService from '../../services/shipmentService'
 import { useMetaStore } from '../../stores/meta'
@@ -36,18 +37,24 @@ const canCancel = computed(() => can(shipment.value, SHIPMENT_ACTION.CANCEL_REQU
 const awaitingPickup = computed(() => shipment.value?.status === SHIPMENT_STATUS.AWAITING_SHOP_PICKUP)
 
 
+let loadRequest = 0
+onBeforeUnmount(() => { loadRequest++ })
 async function load() {
+  const current = ++loadRequest
   loading.value = true
   loadError.value = ''
   notFound.value = false
   try {
-    shipment.value = await shipmentService.get(id.value)
+    const data = await shipmentService.get(id.value)
+    if (current !== loadRequest) return
+    shipment.value = data
   } catch (err) {
+    if (current !== loadRequest) return
     shipment.value = null
     if (err?.status === 404) notFound.value = true
     else loadError.value = err?.message || 'Chưa thể tải vận đơn.'
   } finally {
-    loading.value = false
+    if (current === loadRequest) loading.value = false
   }
 }
 
@@ -204,6 +211,9 @@ watch(id, () => {
         </div>
 
         <!-- Lịch sử -->
+        <LiveLocationMap :key="`${id}:${shipment.updated_at}`" :shipment-id="id" class="card" only-when-open>
+          <h2 class="card__title">Theo dõi vị trí</h2>
+        </LiveLocationMap>
         <ShipmentEventList ref="eventList" :shipment-id="id" />
       </div>
 

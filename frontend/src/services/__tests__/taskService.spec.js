@@ -11,6 +11,15 @@ const call = async (fn) => {
 }
 
 describe('taskService / dispatchService — khớp specs/006, 007 api.md', () => {
+  it('báo bàn giao đổi người không có body; NV xem nhiệm vụ mở theo Shipper (spec 009)', async () => {
+    expect(await call(() => taskService.reportSwapHandover(31))).toEqual({
+      url: '/api/v1/dispatch/tasks/31/report-swap-handover/', method: 'POST', body: undefined,
+    })
+    expect(await call(() => dispatchService.openTasks(8))).toEqual({
+      url: '/api/v1/dispatch/shippers/8/open-tasks/', method: 'GET', body: undefined,
+    })
+  })
+
   it('danh sách / chi tiết nhiệm vụ', async () => {
     expect((await call(() => taskService.list({ open: true, page: 2 }))).url).toBe('/api/v1/dispatch/tasks/?open=true&page=2')
     expect((await call(() => taskService.list({ open: false }))).url).toBe('/api/v1/dispatch/tasks/?open=false')

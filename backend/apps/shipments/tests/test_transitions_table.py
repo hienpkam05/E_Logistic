@@ -37,6 +37,12 @@ CHECKLIST_SECTION_4 = {
     # Spec 008 — không đổi trạng thái nhưng cần mốc lịch sử (tiền lệ "Sửa yêu cầu" của spec 004):
     (S.RETURNING, S.RETURNING, SHIPPER),                  # Shipper báo đã đưa hàng hoàn về (UC04.9 bước 1–3, A1)
     (S.RETURNING, S.RETURNING, ADMIN),                    # NV ghi sai lệch, chưa nhận (UC04.9 E1)
+    # Spec 009 (UC06.8, "Quy tắc bàn giao khi đổi Shipper") — đổi người không đổi trạng thái vận đơn (KEEP):
+    (S.PICKUP_ASSIGNED, S.PICKUP_ASSIGNED, ADMIN),        # Đổi Shipper nhiệm vụ lấy (thay ngay)
+    (S.OUT_FOR_DELIVERY, S.OUT_FOR_DELIVERY, ADMIN),      # Đổi Shipper giao / xác nhận bàn giao / ghi sai lệch
+    (S.OUT_FOR_DELIVERY, S.OUT_FOR_DELIVERY, SHIPPER),    # Shipper cũ báo đã đưa hàng về (A1.3)
+    (S.AWAITING_REDELIVERY, S.AWAITING_REDELIVERY, ADMIN),  # Nhận hàng về điểm tập kết (UC06.6 A2)
+    (S.AWAITING_RETURN, S.AWAITING_RETURN, ADMIN),        # Nhận hàng về điểm tập kết (UC06.7 A1.1)
 }
 
 
@@ -45,7 +51,7 @@ def table_edges(table):
     for rule in table.values():
         for source in rule.sources or [None]:
             for role in rule.roles:
-                edges.add((source, rule.target, role))
+                edges.add((source, rule.target_from(source), role))  # KEEP → cạnh tự lặp (spec 009)
     return edges
 
 

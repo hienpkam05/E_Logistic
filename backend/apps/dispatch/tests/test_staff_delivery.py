@@ -118,7 +118,7 @@ class AssignDeliveryTests(Base):
         self.assertEqual(body["delivery_attempts"], 0)  # UC06.6 điều kiện sau: không tăng số lần khi phân công
         self.assertEqual((body["holder_type"], body["holder_shipper"]["id"]), (HolderType.SHIPPER, self.shipper.pk))
         self.assertEqual((body["tasks"][0]["type"], body["tasks"][0]["attempt_no"]), (TaskType.DELIVERY, 1))
-        self.assertEqual(body["allowed_actions"], [])  # Đang giao: Nhân viên chờ Shipper
+        self.assertEqual(body["allowed_actions"], [A.SWAP_SHIPPER])  # Đang giao: NV chờ Shipper; chỉ có đổi người (spec 009)
 
         task = Task.objects.get(shipment=self.shipment)
         self.assertEqual((task.status, task.shipper, task.assigned_by), (TaskStatus.ACTIVE, self.shipper, self.admin))
@@ -232,7 +232,8 @@ class DecisionTests(Base):
         Notification.objects.all().delete()
         body = self.ok(self.decide("decide-redelivery", "  Khách hẹn sau 17h  "))
         self.assertEqual(body["status"], ShipmentStatus.AWAITING_REDELIVERY)
-        self.assertEqual(body["allowed_actions"], [A.ASSIGN_DELIVERY])
+        # Hàng còn ở Shipper cũ → thêm "Nhận hàng về điểm tập kết" để giao bằng người khác (spec 009 D6).
+        self.assertEqual(body["allowed_actions"], [A.ASSIGN_DELIVERY, A.RECALL_TO_HUB])
         event = ShipmentEvent.objects.get(action=A.DECIDE_REDELIVERY)
         self.assertEqual((event.reason, event.actor), ("Khách hẹn sau 17h", self.admin))
         note = Notification.objects.get()

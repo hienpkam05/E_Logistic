@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Spec 011 Phase 3 fixture</title></head>
+<body><div id="app"></div>
+<script type="module">
+import { createApp, defineComponent, h, ref } from 'vue'
+import { createPinia } from 'pinia'
+import LiveLocationMap from '/src/components/tracking/LiveLocationMap.vue'
+import { useLocationSharing } from '/src/composables/useLocationSharing.js'
+import { useAuthStore } from '/src/stores/auth.js'
+import { useMetaStore } from '/src/stores/meta.js'
+import { ROLES } from '/src/router/roles.js'
+import { TASK_STATUS } from '/src/utils/statusTones.js'
+import '/src/assets/styles/main.css'
+
+const pinia = createPinia()
+const sharingMode = new URLSearchParams(location.search).has('sharing')
+const auth = useAuthStore(pinia)
+auth.setUser({ id: 1, role: sharingMode ? ROLES.SHIPPER : ROLES.SHOP })
+useMetaStore(pinia).choices = { limits: {
+  location_ping_max_age_seconds: 120, location_ping_max_future_seconds: 60,
+  location_ping_min_interval_seconds: 15, location_ping_max_accuracy_m: 1000,
+  location_stale_seconds: 300, location_poll_interval_seconds: 15, location_retention_days: 30,
+} }
+const fixture = defineComponent({
+  setup() {
+    const shipmentId = ref(1)
+    const taskStatus = ref(TASK_STATUS.ACTIVE)
+    const sharing = useLocationSharing(ref(1), { taskStatus })
+    window.fixture = { setShipment: (value) => { shipmentId.value = value }, closeTask: () => { taskStatus.value = TASK_STATUS.REPLACED } }
+    return () => h('main', { class: 'page page--narrow', style: 'margin:24px auto;padding:16px' }, [
+      h('h1', { style: 'margin-bottom:16px' }, 'Theo dõi vị trí'),
+      h('section', { class: 'card' }, sharingMode ? [
+        h('p', 'Chỉ chia sẻ trong nhiệm vụ mở. Bấm bật để cấp quyền vị trí cho trình duyệt.'),
+        h('button', { class: 'btn btn--primary', onClick: () => sharing.start() }, 'Bật chia sẻ'),
+        h('button', { class: 'btn btn--outline', onClick: () => sharing.stop() }, 'Tắt chia sẻ'),
+        h('p', { 'data-testid': 'sharing-state' }, sharing.state.value),
+        h('p', sharing.message.value),
+      ] : [h(LiveLocationMap, { shipmentId: shipmentId.value })]),
+    ])
+  },
+})
+createApp(fixture).use(pinia).mount('#app')
+</script>
+</body></html>

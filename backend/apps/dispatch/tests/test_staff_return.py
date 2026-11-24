@@ -89,7 +89,8 @@ class Base(TestCase):
 
 class AssignReturnTests(Base):
     def test_assign_to_holder_creates_return_task(self):
-        self.assertEqual(self.detail()["allowed_actions"], [A.ASSIGN_RETURN])  # D3: hàng ở Shipper → chưa tiếp nhận
+        # D3: hàng ở Shipper → chưa tiếp nhận; spec 009 D6: nhận hàng về điểm tập kết (người giữ không đi hoàn được).
+        self.assertEqual(self.detail()["allowed_actions"], [A.ASSIGN_RETURN, A.RECALL_TO_HUB])
         body = self.ok(self.assign())
         self.assertEqual(body["status"], ShipmentStatus.RETURNING)  # BR1: chưa phải Đã hoàn về Shop
         self.assertEqual((body["holder_type"], body["holder_shipper"]["id"]), (HolderType.SHIPPER, self.shipper.pk))

@@ -30,9 +30,15 @@ Trong mỗi app nghiệp vụ:
 - `admin.py`: đăng ký công cụ quản trị Django khi có model.
 - `migrations/`: các thay đổi schema được quản lý bằng Git.
 
-Các file hiện là vị trí chuẩn bị cho nghiệp vụ, chưa chứa model hoặc API chức năng.
+Các app đã có model/API và nghiệp vụ của spec 001–009. Tra cứu chuyên biệt/lịch sử spec 010
+đã triển khai trong `shipments`; `tracking` spec 011 đã có LocationPing, API gửi/xem GPS theo nhiệm vụ
+và lệnh purge theo thời điểm nhận (Phase 1–2). Task mở và GPS được đọc trong cùng snapshot SQL.
+Frontend đã có trackingService, useLocationSharing và LiveLocationMap/Leaflet, Phase 4 đã gắn vào
+chi tiết nhiệm vụ Shipper và chi tiết đơn Shop/NV. Chỉ đường D7 mở Google Maps bằng địa chỉ theo phương án
+đã trình bày/yêu cầu tiếp tục; không tích hợp dịch vụ định tuyến hoặc tọa độ địa chỉ mới.
 
-Tiền tố API: `/api/v1/`. Chỉ `/api/v1/health/` hiện có handler; các tiền tố module khác đã được nối vào URL gốc nhưng chưa có endpoint con.
+Tiền tố API: `/api/v1/`. Có health, meta/choices, tài khoản/xác thực, vận đơn, điều phối nhiệm vụ và thông báo.
+Hợp đồng chi tiết theo `specs/NNN-ten/api.md`; spec 009 bổ sung đổi người/bàn giao và danh sách nhiệm vụ mở theo Shipper.
 
 ## Vai trò
 

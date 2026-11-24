@@ -1,11 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as dispatchService from '../../services/dispatchService'
 import * as accountService from '../../services/accountService'
 import { ApiError } from '../../services/http'
 import { useAuthStore } from '../../stores/auth'
 import { useMetaStore } from '../../stores/meta'
 import { CHOICES } from '../../test-utils'
 import AccountDetailView from '../staff/AccountDetailView.vue'
-import { flush, mountRouted, mountView } from './helpers'
+import { flush, mountRouted } from './helpers'
+const mountView = (component, { path }) => mountRouted(component, { routePath: '/staff/accounts/:id', path })
+vi.mock('../../services/dispatchService', () => ({ openTasks: vi.fn() }))
+beforeEach(() => dispatchService.openTasks.mockReset().mockResolvedValue([]))
 
 vi.mock('../../services/accountService', () => ({
   list: vi.fn(), get: vi.fn(), create: vi.fn(), update: vi.fn(), lock: vi.fn(), unlock: vi.fn(),
@@ -50,6 +54,32 @@ afterEach(() => {
 })
 
 describe('AccountDetailView', () => {
+  it('hộp khóa Shipper tải danh sách nhiệm vụ và liên kết vận đơn', async () => {
+    dispatchService.openTasks.mockResolvedValue([{ id: 41, type: 'DELIVERY', status: 'PENDING_SWAP_HANDOVER',
+      needs_attention: true, shipment: { id: 12, tracking_code: 'HTT261123AAAAA' } }])
+    const { wrapper } = await setup()
+    expect(dispatchService.openTasks).not.toHaveBeenCalled()
+    await button(wrapper, 'Khóa tài khoản').trigger('click'); await flush()
+    expect(dispatchService.openTasks).toHaveBeenCalledWith('7')
+    const dialog = wrapper.find('dialog[open]')
+    expect(dialog.text()).toContain('HTT261123AAAAA')
+    expect(dialog.find('a').attributes('href')).toBe('/staff/shipments/12')
+    expect(dialog.text()).toContain('Cần Nhân viên xử lý')
+  })
+
+  it('lỗi tải nhiệm vụ: chặn khóa và có thể thử lại', async () => {
+    dispatchService.openTasks.mockRejectedValueOnce(new Error('Mất mạng nhiệm vụ'))
+    const { wrapper } = await setup()
+    await button(wrapper, 'Khóa tài khoản').trigger('click'); await flush()
+    const dialog = wrapper.find('dialog[open]')
+    expect(dialog.find('button[type="submit"]').element.disabled).toBe(true)
+    await dialog.find('form').trigger('submit')
+    expect(accountService.lock).not.toHaveBeenCalled()
+    await dialog.find('[role="alert"] button').trigger('click'); await flush()
+    expect(dialog.text()).toContain('không có nhiệm vụ đang mở')
+    expect(dialog.find('button[type="submit"]').element.disabled).toBe(false)
+  })
+
   it('hiện hồ sơ, trạng thái, các thao tác', async () => {
     const { wrapper } = await setup()
     expect(wrapper.find('h1').text()).toBe('Nguyễn Văn Long')

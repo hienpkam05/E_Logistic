@@ -11,7 +11,7 @@ import { DELIVERY_TASK, PICKUP_TASK, RETURN_TASK, SHIPMENT_CHOICES, page } from 
 
 vi.mock('../../services/taskService', () => ({
   list: vi.fn(), get: vi.fn(), confirmPickup: vi.fn(), failPickup: vi.fn(), confirmDelivery: vi.fn(),
-  failDelivery: vi.fn(), reportReturnHandover: vi.fn(),
+  failDelivery: vi.fn(), reportReturnHandover: vi.fn(), reportSwapHandover: vi.fn(),
 }))
 
 const withChoices = () => { useMetaStore().choices = SHIPMENT_CHOICES }
@@ -68,6 +68,25 @@ describe('TaskListView (UC04.1)', () => {
 })
 
 describe('TaskDetailView (UC04.1–04.3)', () => {
+  it('chờ đổi người: chỉ điểm tập kết và báo bàn giao; không người nhận, COD hoặc nút thất bại', async () => {
+    const task = { ...DELIVERY_TASK, status: 'PENDING_SWAP_HANDOVER', allowed_actions: ['REPORT_SWAP_HANDOVER'] }
+    taskService.get.mockResolvedValue(task)
+    taskService.reportSwapHandover.mockResolvedValue({ ...task, allowed_actions: [], handover_reported_at: '2026-11-23T05:00:00Z' })
+    const { wrapper } = await mountView(TaskDetailView, { path: '/shipper/tasks/41', beforeMount: withChoices })
+    await flush()
+    expect(wrapper.text()).toContain('Đưa hàng về để bàn giao')
+    expect(wrapper.find('.cod-card').exists()).toBe(false)
+    expect(button(wrapper, 'Giao thành công')).toBeUndefined()
+    expect(button(wrapper, 'Giao thất bại')).toBeUndefined()
+    await button(wrapper, 'Đã đưa hàng về điểm tập kết').trigger('click'); await flush()
+    const dialog = openDialog(wrapper)
+    expect(dialog.find('input[type="number"]').exists()).toBe(false)
+    expect(dialog.find('button[type="submit"]').element.disabled).toBe(false)
+    await dialog.find('form').trigger('submit'); await flush()
+    expect(taskService.reportSwapHandover).toHaveBeenCalledWith('41')
+    expect(wrapper.text()).toContain('chờ Nhân viên điểm tập kết xác nhận')
+    expect(button(wrapper, 'Đã đưa hàng về điểm tập kết')).toBeUndefined()
+  })
   async function setup(task = PICKUP_TASK) {
     taskService.get.mockResolvedValue(task)
     const result = await mountView(TaskDetailView, { path: `/shipper/tasks/${task.id}`, beforeMount: withChoices })

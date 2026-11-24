@@ -25,6 +25,42 @@ beforeEach(() => shipmentService.events.mockReset())
 afterEach(() => vi.restoreAllMocks())
 
 describe('ShipmentEventList', () => {
+  it('nhãn lần lấy/giao giữ số backend và phân biệt đổi Shipper', async () => {
+    shipmentService.events.mockResolvedValue(page([
+      { id: 1, action: 'ASSIGN_PICKUP', task: { type: 'PICKUP', pickup_no: 3 }, created_at: '2026-11-23T00:00:00Z' },
+      { id: 2, action: 'SWAP_SHIPPER', task: { type: 'DELIVERY', attempt_no: 2 },
+        changes: { swap_candidate: { from: null, to: { id: 8, name: 'Bình' } } }, created_at: '2026-11-23T00:00:00Z' },
+    ], { has_transport_activity: true }))
+    const wrapper = mountList(); await flush()
+    expect(wrapper.text()).toContain('Lần lấy 3')
+    expect(wrapper.text()).toContain('Lần giao 2 · Đổi Shipper')
+    expect(wrapper.text()).toContain('Shipper dự kiến: (trống) → Bình')
+    expect(wrapper.text()).not.toContain('Chưa phát sinh vận chuyển')
+  })
+
+  it('cờ toàn đơn quyết định chưa phát sinh, đổi thứ tự về trang 1 và reload giữ lựa chọn', async () => {
+    shipmentService.events.mockResolvedValue(page([], { has_transport_activity: false }))
+    const wrapper = mountList(); await flush()
+    expect(wrapper.text()).toContain('Chưa phát sinh vận chuyển')
+    await wrapper.find('select').setValue('created_at'); await flush()
+    expect(shipmentService.events).toHaveBeenLastCalledWith(12, { page: 1, ordering: 'created_at' })
+    await wrapper.vm.reload()
+    expect(shipmentService.events).toHaveBeenLastCalledWith(12, { page: 1, ordering: 'created_at' })
+    shipmentService.events.mockResolvedValue(page([], { has_transport_activity: true }))
+    await wrapper.vm.reload()
+    expect(wrapper.text()).not.toContain('Chưa phát sinh vận chuyển')
+  })
+
+  it('đổi đơn rồi tải lỗi không giữ lịch sử đơn trước; có thể thử lại', async () => {
+    shipmentService.events.mockResolvedValue(page([{ id: 1, action: 'CREATE_REQUEST', reason: 'Đơn cũ', created_at: '2026-11-23T00:00:00Z' }]))
+    const wrapper = mountList(); await flush()
+    shipmentService.events.mockRejectedValueOnce(new Error('Mất mạng'))
+    await wrapper.setProps({ shipmentId: 13 }); await flush()
+    expect(wrapper.text()).not.toContain('Đơn cũ')
+    shipmentService.events.mockResolvedValue(page([]))
+    await wrapper.find('[role="alert"] button').trigger('click'); await flush()
+    expect(shipmentService.events).toHaveBeenLastCalledWith(13, { page: 1, ordering: '-created_at' })
+  })
   it('tự tải trang 1; mốc duyệt hiện mã vận đơn cấp mới', async () => {
     shipmentService.events.mockResolvedValue(page([
       { id: 2, action: 'APPROVE_REQUEST', from_status: 'PENDING_APPROVAL', to_status: 'AWAITING_PICKUP', actor: ADMIN,
@@ -32,7 +68,7 @@ describe('ShipmentEventList', () => {
     ]))
     const wrapper = mountList()
     await flush()
-    expect(shipmentService.events).toHaveBeenCalledWith(12, { page: 1 })
+    expect(shipmentService.events).toHaveBeenCalledWith(12, { page: 1, ordering: '-created_at' })
     const item = wrapper.find('.events__item').text()
     expect(item).toContain('Duyệt yêu cầu')
     expect(item).toMatch(/Chờ xác nhận\s*→\s*Chờ lấy hàng/)
@@ -48,7 +84,7 @@ describe('ShipmentEventList', () => {
     expect(shipmentService.events).toHaveBeenCalledTimes(2)
     await wrapper.setProps({ shipmentId: 13 })
     await flush()
-    expect(shipmentService.events).toHaveBeenLastCalledWith(13, { page: 1 })
+    expect(shipmentService.events).toHaveBeenLastCalledWith(13, { page: 1, ordering: '-created_at' })
     expect(wrapper.text()).toContain('Chưa có mốc nào.')
   })
 
@@ -56,7 +92,7 @@ describe('ShipmentEventList', () => {
     shipmentService.events.mockRejectedValue(new Error('Mất mạng'))
     const wrapper = mountList()
     await flush()
-    expect(wrapper.find('[role="alert"]').text()).toBe('Mất mạng')
+    expect(wrapper.find('[role="alert"]').text()).toContain('Mất mạng')
   })
 
   it('phản hồi cũ về muộn không đè dữ liệu đơn mới', async () => {

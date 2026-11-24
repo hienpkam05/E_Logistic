@@ -1,6 +1,11 @@
 from django.urls import path
+from apps.tracking.views import ShipmentLocationView
 
 from apps.dispatch.views import (
+    SwapShipperView,
+    ConfirmSwapHandoverView,
+    ReportSwapIssueView,
+    RecallToHubView,
     AbandonPickupView,
     AssignDeliveryView,
     AssignPickupView,
@@ -20,6 +25,7 @@ from .views import (
     ShipmentCollectionView,
     ShipmentDetailView,
     ShipmentEventListView,
+    ShipmentLookupView,
     ShipmentRejectView,
     WardListView,
 )
@@ -27,7 +33,9 @@ from .views import (
 urlpatterns = [
     path("", ShipmentCollectionView.as_view(), name="shipment-list"),
     path("wards/", WardListView.as_view(), name="ward-list"),
+    path("lookup/", ShipmentLookupView.as_view(), name="shipment-lookup"),
     path("<int:pk>/", ShipmentDetailView.as_view(), name="shipment-detail"),
+    path("<int:pk>/location/", ShipmentLocationView.as_view(), name="shipment-location"),
     path("<int:pk>/cancel/", ShipmentCancelView.as_view(), name="shipment-cancel"),
     path("<int:pk>/approve/", ShipmentApproveView.as_view(), name="shipment-approve"),
     path("<int:pk>/reject/", ShipmentRejectView.as_view(), name="shipment-reject"),
@@ -46,4 +54,8 @@ urlpatterns = [
     path("<int:pk>/report-return-issue/", ReportReturnIssueView.as_view(), name="shipment-report-return-issue"),
     path("<int:pk>/confirm-shop-received/", ConfirmShopReceivedView.as_view(), name="shipment-confirm-shop-received"),
     path("<int:pk>/events/", ShipmentEventListView.as_view(), name="shipment-events"),
+    path("<int:pk>/swap-shipper/", SwapShipperView.as_view(), name="shipment-swap-shipper"),
+    path("<int:pk>/confirm-swap-handover/", ConfirmSwapHandoverView.as_view(), name="shipment-confirm-swap-handover"),
+    path("<int:pk>/report-swap-issue/", ReportSwapIssueView.as_view(), name="shipment-report-swap-issue"),
+    path("<int:pk>/recall-to-hub/", RecallToHubView.as_view(), name="shipment-recall-to-hub"),
 ]

@@ -8,6 +8,8 @@ import { formatDateTime, formatPhone, formatVnd } from '../../utils/format'
 import { FAIL_REASON_GROUP } from '../../utils/shipmentActions'
 import AppIcon from '../common/AppIcon.vue'
 import StatusBadge from '../common/StatusBadge.vue'
+import { SHIPMENT_ACTION as A, can } from '../../utils/shipmentActions'
+import { TASK_STATUS } from '../../utils/statusTones'
 
 const NOT_YET = 'Chưa phát sinh' // UC05.7 A1.2
 
@@ -15,11 +17,19 @@ const props = defineProps({
   shipment: { type: Object, required: true },
 })
 const meta = useMetaStore()
+const emit = defineEmits(['action'])
 
 const tasks = computed(() => props.shipment.tasks ?? [])
 const openTask = computed(() => tasks.value.find((t) => !t.closed_at) ?? null)
 const needsAttention = computed(() => Boolean(openTask.value?.needs_attention))
 const holderLocked = computed(() => Boolean(props.shipment.holder_locked) && !needsAttention.value)
+const swapPending = computed(() => openTask.value?.status === TASK_STATUS.PENDING_SWAP_HANDOVER)
+const recoveryActions = computed(() => [
+  { action: A.SWAP_SHIPPER, label: swapPending.value ? 'Đổi người dự kiến' : 'Đổi Shipper' },
+  { action: A.CONFIRM_SWAP_HANDOVER, label: 'Xác nhận nhận hàng bàn giao' },
+  { action: A.RECALL_TO_HUB, label: 'Nhận hàng về điểm tập kết' },
+  { action: A.RECEIVE_RETURN, label: 'Tiếp nhận hàng hoàn' },
+].filter((item) => can(props.shipment, item.action)))
 
 const rows = computed(() => {
   const s = props.shipment
@@ -45,11 +55,19 @@ function resultText(task) {
   <article class="card">
     <h2 class="card__title"><span class="card__title-icon"><AppIcon name="truck" /></span>Điều phối</h2>
     <p v-if="needsAttention" class="alert alert--warning attention" role="alert">
-      Shipper phụ trách đã bị khóa tài khoản khi nhiệm vụ còn mở — cần đổi Shipper.
+      Shipper phụ trách đã bị khóa tài khoản khi nhiệm vụ còn mở — cần Nhân viên xử lý bàn giao.
     </p>
     <p v-else-if="holderLocked" class="alert alert--warning attention" role="alert">
       Shipper đang giữ hàng đã bị khóa tài khoản — chưa phân công giao được; cần bàn giao hàng về điểm tập kết (đổi Shipper).
     </p>
+    <div v-if="swapPending" class="alert alert--warning attention" role="status">
+      <p class="alert__text">Chờ bàn giao đổi Shipper — dự kiến: <strong>{{ openTask.swap_candidate?.full_name }}</strong>.
+        Người mới chưa có quyền nhiệm vụ. Người cũ đưa hàng về {{ meta.hub?.name }} để Nhân viên kiểm tra và xác nhận.</p>
+    </div>
+    <div v-if="needsAttention || holderLocked || swapPending" class="form__actions attention">
+      <button v-for="item in recoveryActions" :key="item.action" type="button" class="btn btn--outline btn--sm"
+              @click="emit('action', item.action)">{{ item.label }}</button>
+    </div>
     <dl class="details">
       <template v-for="[label, value] in rows" :key="label">
         <dt>{{ label }}</dt>
@@ -69,6 +87,7 @@ function resultText(task) {
         <span v-if="task.handover_reported_at" class="tasks__result">
           Shipper đã báo đưa hàng về lúc {{ formatDateTime(task.handover_reported_at) }}
         </span>
+        <span v-if="task.replaced_by" class="tasks__result">Đã thay thế → {{ task.replaced_by.shipper?.full_name }}</span>
       </li>
     </ul>
   </article>

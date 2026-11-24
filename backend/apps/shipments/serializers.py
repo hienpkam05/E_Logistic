@@ -79,6 +79,32 @@ class ShipmentSummarySerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class ShipmentLookupSerializer(ShipmentSummarySerializer):
+    """Tóm tắt tra cứu kèm cập nhật gần nhất; không đổi hợp đồng danh sách hiện có."""
+
+    class Meta(ShipmentSummarySerializer.Meta):
+        fields = [*ShipmentSummarySerializer.Meta.fields, "updated_at"]
+        read_only_fields = fields
+
+
+class ShipmentLookupQuerySerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=SEARCH_QUERY_MAX_LENGTH)
+
+    def validate_code(self, value):
+        # CharField đã trim đầu/cuối. Không xóa khoảng trắng ở giữa, không tìm gần đúng/iexact.
+        return value.upper()
+
+
+class ShipmentEventQuerySerializer(serializers.Serializer):
+    # Cùng quy tắc thời gian tạo + id với danh sách vận đơn, không lặp lại bảng sắp xếp.
+    ordering = serializers.ChoiceField(choices=list(SHIPMENT_LIST_ORDERINGS), default=DEFAULT_SHIPMENT_ORDERING)
+
+    def to_internal_value(self, data):
+        # QueryDict/HTML có thể coi "ordering=" là bỏ tham số khi field có default.
+        # Giữ rỗng là giá trị không hợp lệ; chỉ vắng hẳn key mới dùng thứ tự mặc định.
+        return super().to_internal_value(dict(data.items()))
+
+
 class ShipmentDetailSerializer(serializers.ModelSerializer):
     """Chi tiết (UC05.4, UC05.7).
 
@@ -222,9 +248,26 @@ class RejectShipmentSerializer(ApproveShipmentSerializer):
 
 
 class ShipmentEventSerializer(serializers.ModelSerializer):
-    actor = EventActorSerializer(read_only=True, allow_null=True)
+    actor = serializers.SerializerMethodField()
+    task = serializers.SerializerMethodField()
+
+    def get_actor(self, obj):
+        if obj.actor_id is None:
+            return None
+        request = self.context.get("request")
+        if request is not None and request.user.role == UserRole.ADMIN:
+            return EventActorSerializer(obj.actor).data
+        # Shop chỉ nhận danh tính hiển thị, không username/SĐT nội bộ; không đổi serializer dùng chung accounts.
+        return {"id": obj.actor_id, "full_name": obj.actor.full_name}
+
+    def get_task(self, obj):
+        task = obj.task
+        if task is None:
+            return None
+        return {"id": task.pk, "type": task.type, "attempt_no": task.attempt_no,
+                "pickup_no": self.context.get("pickup_numbers", {}).get(task.pk)}
 
     class Meta:
         model = ShipmentEvent
-        fields = ["id", "action", "from_status", "to_status", "actor", "reason", "changes", "created_at"]
+        fields = ["id", "action", "from_status", "to_status", "actor", "reason", "changes", "created_at", "task"]
         read_only_fields = fields

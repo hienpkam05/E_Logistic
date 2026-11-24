@@ -2,7 +2,7 @@
 // Chi tiết nhiệm vụ của Shipper — LẤY (UC04.1–04.3, spec 006), GIAO (UC04.4–04.7, spec 007), HOÀN (UC04.8–04.9, spec 008).
 // Mỗi loại chỉ hiện thông tin cần cho việc đó (D3); nút theo allowed_actions. Khác biệt giữa hai loại khai báo
 // trong bảng TYPE_VIEW, không rải if/else. Thiết kế cho điện thoại: nút gọi điện, thanh thao tác dính đáy.
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppIcon from '../../components/common/AppIcon.vue'
 import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
@@ -10,6 +10,9 @@ import FormField from '../../components/common/FormField.vue'
 import StatusBadge from '../../components/common/StatusBadge.vue'
 import CodInput from '../../components/dispatch/CodInput.vue'
 import HubCard from '../../components/dispatch/HubCard.vue'
+import DirectionsLink from '../../components/tracking/DirectionsLink.vue'
+import LocationSharingCard from '../../components/tracking/LocationSharingCard.vue'
+import { OPEN_LOCATION_TASK_STATUSES, taskDestination } from '../../utils/location'
 import { API_ERROR } from '../../services/http'
 import * as taskService from '../../services/taskService'
 import { useMetaStore } from '../../stores/meta'
@@ -18,6 +21,7 @@ import { fieldErrors } from '../../utils/formErrors'
 import {
   DELIVERY_FAIL_REASON, FAIL_REASON_GROUP, PICKUP_FAIL_REASON, SHIPMENT_ACTION as A, TASK_TYPE, can,
 } from '../../utils/shipmentActions'
+import { TASK_STATUS } from '../../utils/statusTones'
 
 const TYPE_VIEW = {
   [TASK_TYPE.PICKUP]: {
@@ -53,6 +57,11 @@ const TYPE_VIEW = {
     succeeded: 'Điểm tập kết đã tiếp nhận lúc', failed: '',
   },
 }
+const SWAP_VIEW = {
+  ...TYPE_VIEW[TASK_TYPE.RETURN], confirm: A.REPORT_SWAP_HANDOVER,
+  confirmCall: (id) => taskService.reportSwapHandover(id),
+  confirmDone: 'Đã báo đưa hàng về để đổi Shipper. Chờ Nhân viên kiểm tra và xác nhận bàn giao.',
+}
 
 const route = useRoute()
 const meta = useMetaStore()
@@ -66,7 +75,8 @@ const warning = ref('')
 
 const id = computed(() => route.params.id)
 const shipment = computed(() => task.value?.shipment)
-const view = computed(() => TYPE_VIEW[task.value?.type] ?? TYPE_VIEW[TASK_TYPE.PICKUP])
+const isSwapPending = computed(() => task.value?.status === TASK_STATUS.PENDING_SWAP_HANDOVER)
+const view = computed(() => isSwapPending.value ? SWAP_VIEW : TYPE_VIEW[task.value?.type] ?? TYPE_VIEW[TASK_TYPE.PICKUP])
 const isDelivery = computed(() => task.value?.type === TASK_TYPE.DELIVERY)
 const isReturn = computed(() => task.value?.type === TASK_TYPE.RETURN)
 // UC04.9 A1: đã báo bàn giao nhưng Nhân viên chưa xác nhận — nhiệm vụ vẫn mở.
@@ -75,19 +85,27 @@ const canConfirm = computed(() => can(task.value, view.value.confirm))
 const canFail = computed(() => can(task.value, view.value.fail))
 const reasons = computed(() => meta.options(FAIL_REASON_GROUP[task.value?.type] ?? FAIL_REASON_GROUP[TASK_TYPE.PICKUP]))
 const maxAttempts = computed(() => meta.limits.max_delivery_attempts)
+const locationOpen = computed(() => OPEN_LOCATION_TASK_STATUSES.has(task.value?.status))
+const destination = computed(() => taskDestination(task.value, meta.hub))
 
+let loadRequest = 0
+onBeforeUnmount(() => { loadRequest++ })
 async function load() {
+  const current = ++loadRequest
   loading.value = true
   loadError.value = ''
   notFound.value = false
   try {
-    task.value = await taskService.get(id.value)
+    const data = await taskService.get(id.value)
+    if (current !== loadRequest) return
+    task.value = data
   } catch (err) {
+    if (current !== loadRequest) return
     task.value = null
     if (err?.status === 404) notFound.value = true // UC04.1 E1, UC04.4 E1: đã chuyển / thu hồi
     else loadError.value = err?.message || 'Chưa thể tải nhiệm vụ.'
   } finally {
-    loading.value = false
+    if (current === loadRequest) loading.value = false
   }
 }
 
@@ -103,7 +121,7 @@ const codError = ref('')
 const noteRequired = computed(() => reasonCode.value === view.value.other) // D4
 const failReady = computed(() => reasonCode.value && (!noteRequired.value || note.value.trim()))
 // Giao: chỉ cho xác nhận khi số đã thu khớp phải thu (backend vẫn kiểm lại — D5).
-const confirmReady = computed(() => !isDelivery.value || cod.value === shipment.value?.cod_amount)
+const confirmReady = computed(() => isSwapPending.value || !isDelivery.value || cod.value === shipment.value?.cod_amount)
 
 function openDialog(kind, presetReason = '') {
   dialog.value = kind
@@ -211,16 +229,24 @@ watch(id, () => {
 
       <p v-if="notice" class="alert alert--success" role="status">{{ notice }}</p>
       <p v-if="resultText" class="alert alert--info">{{ resultText }}</p>
+      <p v-if="isSwapPending" class="alert alert--warning" role="alert">
+        Nhiệm vụ đang chờ bàn giao đổi Shipper. Hãy đưa hàng về điểm tập kết; không giao cho người nhận hoặc thu COD.
+      </p>
+      <p v-if="task.status === TASK_STATUS.REPLACED" class="alert alert--info" role="status">
+        Nhiệm vụ đã chuyển cho Shipper khác. Bạn chỉ xem lại lịch sử, không thực hiện giao nhận hoặc thu COD.
+      </p>
       <p v-if="waitingIntake" class="alert alert--info" role="status">
         Đã báo đưa hàng về lúc {{ formatDateTime(task.handover_reported_at) }} — chờ Nhân viên điểm tập kết xác nhận tiếp nhận.
       </p>
 
       <!-- Giao: người nhận + COD (UC04.4 bước 5) -->
-      <template v-if="isDelivery">
+      <HubCard v-if="isSwapPending" title="Đưa hàng về để bàn giao"><DirectionsLink :address="destination" /></HubCard>
+      <template v-else-if="isDelivery">
         <article class="card">
           <h2 class="card__title"><span class="card__title-icon"><AppIcon name="map-pin" /></span>Giao đến</h2>
           <p class="place__name">{{ shipment.receiver_name }}</p>
           <p class="place__address">{{ shipment.delivery_address }}, {{ shipment.delivery_ward?.name }}</p>
+          <DirectionsLink :address="destination" />
           <div class="place__contact">
             <!-- D3: nhiệm vụ đã đóng → backend ẩn SĐT (null) -->
             <span v-if="shipment.receiver_phone">{{ formatPhone(shipment.receiver_phone) }}</span>
@@ -234,12 +260,13 @@ watch(id, () => {
           <p class="cod-card__amount" :class="{ muted: !shipment.cod_amount }">
             {{ shipment.cod_amount ? formatVnd(shipment.cod_amount) : 'Không thu hộ' }}
           </p>
-          <p v-if="shipment.cod_amount" class="muted cod-card__hint">Thu đủ số này trước khi bấm "Giao thành công".</p>
+          <p v-if="shipment.cod_amount && canConfirm" class="muted cod-card__hint">Thu đủ số này trước khi bấm "Giao thành công".</p>
         </article>
       </template>
 
       <!-- Hoàn: đưa về điểm tập kết (UC04.8 bước 3, D8) -->
       <HubCard v-else-if="isReturn" title="Đưa hàng về">
+        <DirectionsLink :address="destination" />
         <p v-if="shipment.return_reason" class="return-reason"><strong>Lý do hoàn:</strong> {{ shipment.return_reason }}</p>
       </HubCard>
 
@@ -248,6 +275,7 @@ watch(id, () => {
         <h2 class="card__title"><span class="card__title-icon"><AppIcon name="map-pin" /></span>Lấy hàng tại</h2>
         <p class="place__name">{{ shipment.shop_name }}</p>
         <p class="place__address">{{ shipment.pickup_address }}, {{ shipment.pickup_ward?.name }}</p>
+        <DirectionsLink :address="destination" />
         <div class="place__contact">
           <span>{{ shipment.sender_name }}<template v-if="shipment.sender_phone"> · {{ formatPhone(shipment.sender_phone) }}</template></span>
           <a v-if="shipment.sender_phone" :href="`tel:${shipment.sender_phone}`" class="btn btn--outline btn--sm">
@@ -255,6 +283,8 @@ watch(id, () => {
           </a>
         </div>
       </article>
+
+      <LocationSharingCard v-if="locationOpen" :task-id="id" :task-status="task.status" @task-updated="task = $event" />
 
       <article class="card">
         <h2 class="card__title"><span class="card__title-icon"><AppIcon name="box" /></span>Kiện hàng</h2>
@@ -281,12 +311,12 @@ watch(id, () => {
                      @confirm="confirmTask" @cancel="dialog = ''">
         <dl class="details">
           <dt>Mã vận đơn</dt><dd>{{ shipment.tracking_code }}</dd>
-          <template v-if="isDelivery"><dt>Người nhận</dt><dd>{{ shipment.receiver_name }}</dd></template>
+          <template v-if="isDelivery && !isSwapPending"><dt>Người nhận</dt><dd>{{ shipment.receiver_name }}</dd></template>
           <template v-else><dt>Shop</dt><dd>{{ shipment.shop_name }}</dd></template>
           <dt>Số kiện</dt><dd>{{ shipment.package_count }}</dd>
           <dt>Hàng</dt><dd>{{ shipment.package_description }}</dd>
         </dl>
-        <template v-if="isDelivery">
+        <template v-if="isDelivery && !isSwapPending">
           <CodInput v-if="dialog === 'confirm'" v-model="cod" :expected="shipment.cod_amount"
                     :max="meta.limits.cod_max_vnd" :error="codError" :disabled="busy" />
           <!-- UC04.5 E1.3: chưa thu đủ thì ghi giao thất bại, không thu một phần -->
@@ -295,7 +325,7 @@ watch(id, () => {
             Chưa thu đủ? Ghi giao thất bại
           </button>
         </template>
-        <p v-else-if="isReturn">
+        <p v-else-if="isReturn || isSwapPending">
           Chỉ bấm khi đã giao hàng tận tay cho Nhân viên tại điểm tập kết. Nhân viên sẽ đối chiếu mã đơn, số kiện
           và xác nhận tiếp nhận.
         </p>

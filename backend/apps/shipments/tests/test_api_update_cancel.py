@@ -174,8 +174,10 @@ class EventListTests(Base):
         self.assertEqual([e["action"] for e in body["results"]], ["CANCEL_REQUEST", "UPDATE_REQUEST", "CREATE_REQUEST"])
         first = body["results"][0]
         self.assertEqual(set(first), {"id", "action", "from_status", "to_status", "actor", "reason", "changes",
-                                      "created_at"})
-        self.assertEqual(first["actor"]["username"], "shop_a")
+                                      "created_at", "task"})
+        self.assertEqual(first["actor"], {"id": self.shop.pk, "full_name": self.shop.full_name})
+        self.assertIsNone(first["task"])
+        self.assertFalse(body["has_transport_activity"])
         self.assertEqual(body["results"][1]["changes"], {"cod_amount": {"from": 350000, "to": 0}})
 
     def test_other_shop_404_and_read_only(self):

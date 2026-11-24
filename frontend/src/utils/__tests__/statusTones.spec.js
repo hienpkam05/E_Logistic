@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { SHIPMENT_STATUS, STATUS_TONES, TONES, toneOf } from '../statusTones'
+import { SHIPMENT_STATUS, TASK_STATUS, STATUS_TONES, TONES, toneOf } from '../statusTones'
 
 // Đối chiếu với mã trạng thái thật ở backend (đọc thẳng constants.py, không chạy backend).
 // Vitest chạy từ thư mục frontend/.
@@ -14,6 +14,16 @@ function backendCodes(file, className) {
 }
 
 describe('statusTones', () => {
+  it('TASK_STATUS của spec 009 khớp TaskStatus backend và có tông màu', () => {
+    const codes = backendCodes('dispatch/constants.py', 'TaskStatus')
+    expect(Object.keys(TASK_STATUS).sort()).toEqual(['ACTIVE', 'PENDING_SWAP_HANDOVER', 'REPLACED'])
+    for (const [key, value] of Object.entries(TASK_STATUS)) {
+      expect(value).toBe(key)
+      expect(codes).toContain(value)
+      expect(STATUS_TONES.task_statuses[value]).toBeDefined()
+    }
+  })
+
   it.each([
     ['shipment_statuses', 'shipments/constants.py', 'ShipmentStatus'],
     ['task_statuses', 'dispatch/constants.py', 'TaskStatus'],

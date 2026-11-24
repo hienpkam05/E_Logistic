@@ -141,7 +141,7 @@ class ReportHandoverTests(Base):
         self.assertFalse(ShipmentEvent.objects.filter(action=A.REPORT_RETURN_HANDOVER).exists())
 
     def test_replaced_task_cannot_report_while_shipment_still_returning(self):
-        """Spec 009 sẽ thay người trên nhiệm vụ hoàn: nhiệm vụ cũ đóng nhưng đơn vẫn Đang hoàn → người cũ không báo."""
+        """Dữ liệu bất thường: nhiệm vụ hoàn đã đóng không được báo; spec 009 D3 không tạo nhánh đổi người hoàn."""
         from django.utils import timezone
 
         Task.objects.filter(pk=self.task.pk).update(status=TaskStatus.REPLACED, closed_at=timezone.now())
@@ -168,7 +168,8 @@ class ReportHandoverTests(Base):
             self.ok(self.report())
         tables = [re.search(r'FROM "(\w+)"', q["sql"]).group(1)
                   for q in ctx.captured_queries if "FOR UPDATE" in q["sql"]]
-        self.assertEqual(tables, ["shipments_shipment", "dispatch_task"])
+        # Báo bàn giao phải khóa người ghi trước task để không deadlock với khóa tài khoản (spec 009 nghiệm thu).
+        self.assertEqual(tables, ["shipments_shipment", "accounts_user", "dispatch_task"])
 
 
 @override_settings(HUB=HUB)

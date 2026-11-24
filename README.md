@@ -185,7 +185,46 @@ npm.cmd run build
 - Màn Nhân viên gộp tab theo giai đoạn (Chờ xác nhận · Lấy hàng · Giao hàng · Hoàn hàng · Tất cả) kèm chip trạng thái.
 - Điểm tập kết cấu hình trong `backend/.env`: `HUB_NAME`, `HUB_ADDRESS`, `HUB_PHONE` (xem `backend/.env.example`).
 
-Chưa có: đổi Shipper, tra cứu, GPS (spec 009–011).
+Đã triển khai [spec 009 — Đổi Shipper](specs/009-doi-shipper/spec.md), nghiệm thu chức năng tự động đạt:
+
+- Đổi nhiệm vụ lấy ngay; khi đang giữ hàng giao, người mới chỉ là dự kiến cho tới khi Nhân viên xác nhận bàn giao thực tế.
+- Người cũ chỉ báo đưa hàng về; người mới nhận nhiệm vụ cùng lần giao. Đổi người không đặt lại số lần giao hay ghi COD.
+- Ghi sai lệch giữ chờ; nhận hàng về điểm tập kết khi không còn nhiệm vụ mở để giao lại/tiếp nhận hoàn.
+- Hộp khóa Shipper hiện nhiệm vụ mở và link vận đơn; xử lý được trường hợp người cũ/người dự kiến bị khóa.
+- Kiểm chứng: 531 test backend xuôi và đảo thứ tự, 326 Vitest, 3 kịch bản Chrome với API/PostgreSQL test DB thật.
+
+**Còn chờ:** người dùng tự thử [manual-test.md](specs/009-doi-shipper/manual-test.md); audit dev còn 7 mục
+(2 critical), audit production 0. Báo cáo và các giới hạn build tại [acceptance.md](specs/009-doi-shipper/acceptance.md).
+Spec 009 chưa được đánh dấu nghiệm thu toàn bộ.
+
+Đã triển khai [spec 010 — Tra cứu và lịch sử](specs/010-tra-cuu-lich-su/spec.md):
+
+- Shop/Nhân viên tra đúng mã YC/HTT tại `/tracking`, có link chi tiết/lịch sử và thử lại khi lỗi mạng.
+- Shop chỉ thấy đơn mình; Shipper không có quyền tra cứu. Lịch sử phân biệt lần lấy, lần giao và đổi Shipper, có đổi thứ tự.
+- Nghiệm thu kỹ thuật: 550 test backend xuôi/ngược, 337 Vitest, build và Chrome với API/PostgreSQL test DB thật.
+- Còn chờ người dùng thử [manual-test.md](specs/010-tra-cuu-lich-su/manual-test.md); audit dev còn 7 mục (2 critical),
+  production 0. Kết quả/giới hạn: [acceptance.md](specs/010-tra-cuu-lich-su/acceptance.md).
+
+[Spec 011 — GPS](specs/011-gps-ban-do/spec.md) đã triển khai backend Phase 1–2: model LocationPing,
+API gửi vị trí kiểm nhiệm vụ/nhịp gửi và API xem điểm mới nhất cho Shop/Nhân viên đúng quyền.
+Nhiệm vụ đóng hoặc đã thay người không trả GPS cũ. Migration mới chưa áp dụng vào database đang dùng.
+
+Lệnh `python backend/manage.py purge_location_pings` giữ mặc định 30 ngày theo thời điểm máy chủ nhận,
+chỉ xóa GPS quá hạn. Sau khi migrate DB local, người vận hành cần lên lịch chạy lệnh hằng ngày
+(ví dụ Task Scheduler trên Windows); chưa có lịch tự động được cài. Override `--days N` phải là số nguyên dương.
+Chi tiết: [models.md](specs/011-gps-ban-do/models.md).
+
+Phase 4 đã gắn chia sẻ GPS vào nhiệm vụ Shipper và bản đồ live vào chi tiết đơn Shop/Nhân viên.
+Shipper chủ động bật sau giải thích; từ chối quyền vẫn có địa chỉ và chỉ đường. Nhiệm vụ chờ bàn giao đổi người
+dẫn về điểm tập kết; khi đóng/thay người, khối GPS dừng và không tái dùng điểm cũ cho task mới.
+Nút Chỉ đường mở Google Maps bằng địa chỉ, không có tuyến nhúng hoặc gọi dịch vụ định tuyến phía máy chủ.
+Kiểm chứng: 384 Vitest, build và Chrome/session/CSRF/API/PostgreSQL test DB thật; 10 ảnh 1440/390.
+GPS và tile giả lập trong browser test, không dùng vị trí thiết bị/tài khoản thực.
+Nền mặc định OSM; đổi provider qua `VITE_MAP_TILE_URL` và `VITE_MAP_TILE_ATTRIBUTION` trong `frontend/.env`
+(xem `.env.example`). Attribution luôn hiện, không tải hàng loạt/offline tile. Nguồn OSM là dịch vụ best-effort;
+provider riêng cần attribution phù hợp. [Bằng chứng Phase 4](specs/011-gps-ban-do/artifacts/phase4/README.md),
+[audit Phase 3](specs/011-gps-ban-do/artifacts/phase3/README.md).
+Tiếp theo: nghiệm thu Phase 5 và người dùng [tự thử](specs/011-gps-ban-do/manual-test.md).
 
 Chi tiết ranh giới module: [docs/architecture.md](docs/architecture.md).
 

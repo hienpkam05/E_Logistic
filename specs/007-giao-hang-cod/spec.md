@@ -137,6 +137,10 @@ Theo quy ước spec 001 mục 3.6 như spec 006: khóa **đơn** → **user / n
   - Chỗ cần thêm loại RETURN (đã khai dạng bảng): backend `TASK_SHIPMENT_VIEWS` (serializer Shipper), `FAIL_REASONS_BY_TASK_TYPE` (RETURN không thất bại — giữ nguyên); frontend `TYPE_VIEW` (`TaskDetailView`), `TASK_TYPE`, chip lọc danh sách tự thêm theo `TASK_TYPE`.
   - Chờ xử lý hoàn hiện đã trả `allowed_actions` = `ASSIGN_RETURN`, `RECEIVE_RETURN` (bảng trạng thái có sẵn) nhưng màn NV chưa có nút — thêm vào `ACTION_BUTTONS`.
 - **Spec 009:** UC06.6 A2 — đổi Shipper khi người cũ còn giữ hàng (bàn giao về điểm tập kết, rồi mới phân công người mới); `attempt_no` của nhiệm vụ thay thế **giữ nguyên** (đổi người không cấp thêm lượt, UC04.6 BR1, UC06.6 BR2). Gỡ cảnh báo "Shipper giữ hàng đã bị khóa" (D7).
+  - **Đã xử lý 23/11/2026:** đổi nhiệm vụ giao qua trạng thái Chờ bàn giao; người cũ mất giao/thất bại/COD;
+    Nhân viên nhận thực tế rồi mới tạo nhiệm vụ cùng `attempt_no`. Khi Chờ giao lại mà không còn nhiệm vụ mở,
+    dùng Nhận hàng về điểm tập kết, sau đó phân công người khác; hết `holder_locked`.
+    Đã bấm thật đổi người ở lần 3, thất bại thứ 3 không có giao lại/lần 4; chỉ chuyển hoàn.
   - CHECK `task_attempt_matches_type` bắt nhiệm vụ GIAO luôn có `attempt_no` 1..3 → nhiệm vụ thay thế phải chép `attempt_no` của nhiệm vụ cũ.
   - Đổi Shipper trên đơn Đang giao: khóa ĐƠN trước NHIỆM VỤ (đã có test kiểm thứ tự khóa phía Shipper).
 - **Spec 011:** dừng chia sẻ vị trí khi nhiệm vụ giao đóng (UC04.5 bước 7).

@@ -19,10 +19,12 @@ export const ROLE_HOME = Object.freeze({
 // Thêm mục cho vai trò khác ở spec sau.
 export const ROLE_MENU = Object.freeze({
   [ROLES.SHOP]: [
+    { label: 'Tra cứu vận đơn', to: { name: 'tracking' }, icon: 'search' },
     { label: 'Vận đơn của tôi', to: { name: 'shop-shipments' }, icon: 'package' },
     { label: 'Tạo yêu cầu gửi hàng', to: { name: 'shop-shipment-new' }, icon: 'package-plus' },
   ],
   [ROLES.ADMIN]: [
+    { label: 'Tra cứu vận đơn', to: { name: 'tracking' }, icon: 'search' },
     { label: 'Quản lý vận đơn', to: { name: 'staff-shipments' }, icon: 'clipboard' },
     { label: 'Quản lý tài khoản', to: { name: 'staff-accounts' }, icon: 'users' },
     { label: 'Quản lý Shipper', to: { name: 'staff-accounts', query: { role: ROLES.SHIPPER } }, icon: 'truck' },

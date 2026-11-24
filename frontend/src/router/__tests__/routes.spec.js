@@ -6,6 +6,23 @@ vi.mock('../../stores/auth', () => ({ useAuthStore: () => ({ restore: async () =
 
 const { default: router } = await import('../index')
 
+describe('route/menu tra cứu thật (spec 010)', () => {
+  it('route đúng quyền; menu chỉ có Shop và Nhân viên', async () => {
+    const { ROLES, menuFor } = await import('../roles')
+    const { resolveNavigation } = await import('../guard')
+    const to = router.resolve('/tracking?code=YC000012')
+    expect(to.name).toBe('tracking')
+    expect(to.meta.roles).toEqual([ROLES.SHOP, ROLES.ADMIN])
+    for (const role of [ROLES.SHOP, ROLES.ADMIN]) {
+      expect(resolveNavigation(to, { isAuthenticated: true, role })).toBe(true)
+      expect(menuFor(role).some(item => item.to.name === 'tracking')).toBe(true)
+    }
+    expect(resolveNavigation(to, { isAuthenticated: true, role: ROLES.SHIPPER })).toEqual({ name: 'shipper-home' })
+    expect(menuFor(ROLES.SHIPPER).some(item => item.to.name === 'tracking')).toBe(false)
+    expect(resolveNavigation(to, { isAuthenticated: false }).name).toBe('login')
+  })
+})
+
 describe('router thật: đường dẫn chi tiết theo id', () => {
   it.each([
     ['/shop/shipments/12', 'shop-shipment-detail'],

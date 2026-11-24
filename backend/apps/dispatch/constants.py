@@ -79,6 +79,7 @@ class HandoverKind(models.TextChoices):
     HUB_INTAKE = "HUB_INTAKE", "Nhập điểm tập kết"
     RETURN_INTAKE = "RETURN_INTAKE", "Tiếp nhận hàng hoàn"  # spec 008 — UC04.9
     SHOP_PICKUP = "SHOP_PICKUP", "Shop nhận hàng hoàn"  # spec 008 — UC04.11
+    REASSIGN_INTAKE = "REASSIGN_INTAKE", "Nhận hàng về để đổi Shipper"  # spec 009 — UC06.8 A1.4, nhận về điểm tập kết
 
 
 # Độ dài ghi chú (kết quả nhiệm vụ, sai lệch khi bàn giao) — khớp cột lý do lịch sử vận đơn.
@@ -147,6 +148,20 @@ RETURN_AT_HUB_BODY = "Mời Shop đến nhận tại {hub}: {address} (SĐT {pho
 RETURN_COMPLETED_TITLE = "Shop đã nhận lại hàng hoàn {code}"
 RETURN_COMPLETED_BODY = "Người nhận: {name}."
 
+# ---- Spec 009: đổi Shipper / phân công lại ----
+SWAP_SAME_SHIPPER_MESSAGE = "Người thay thế phải khác Shipper hiện tại."
+SWAP_NOT_ALLOWED_MESSAGE = "Đơn không có nhiệm vụ lấy hoặc giao đang mở để đổi Shipper."
+SWAP_NOT_PENDING_MESSAGE = "Đơn không đang chờ bàn giao đổi Shipper."
+SWAP_CANDIDATE_UNAVAILABLE_MESSAGE = (
+    "Shipper dự kiến {name} không còn hoạt động. Vui lòng chọn Shipper khác trước khi xác nhận nhận hàng."
+)
+RECALL_NOT_ALLOWED_MESSAGE = "Chỉ nhận hàng về khi hàng đang ở Shipper và đơn không còn nhiệm vụ đang mở."
+SWAP_REPLACED_TITLE = "Nhiệm vụ {code} đã chuyển cho Shipper khác"
+SWAP_HANDOVER_REQUIRED_TITLE = "Đưa hàng {code} về điểm tập kết để bàn giao"
+SWAP_HANDOVER_REQUIRED_BODY = "Nhiệm vụ sẽ chuyển cho Shipper khác. Mang hàng về {hub}: {address}. Lý do: {reason}"
+SWAP_HANDOVER_REPORTED_TITLE = "Shipper {name} đã đưa hàng {code} về để đổi người"
+SWAP_HANDOVER_REPORTED_BODY = "Kiểm tra kiện hàng rồi xác nhận nhận hàng bàn giao."
+
 
 class TaskAction(models.TextChoices):
     TASK_SUCCEED = "TASK_SUCCEED", "Hoàn tất nhiệm vụ"
@@ -186,4 +201,8 @@ STAFF_ACTION_VERBS = {
     ShipmentAction.RECEIVE_RETURN: "tiếp nhận hàng hoàn",
     ShipmentAction.REPORT_RETURN_ISSUE: "ghi sai lệch hàng hoàn",
     ShipmentAction.CONFIRM_SHOP_RECEIVED: "xác nhận Shop nhận hàng",
+    ShipmentAction.SWAP_SHIPPER: "đổi Shipper",  # spec 009
+    ShipmentAction.CONFIRM_SWAP_HANDOVER: "xác nhận nhận hàng bàn giao",
+    ShipmentAction.REPORT_SWAP_ISSUE: "ghi sai lệch bàn giao",
+    ShipmentAction.RECALL_TO_HUB: "nhận hàng về điểm tập kết",
 }

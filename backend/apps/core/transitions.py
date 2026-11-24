@@ -3,9 +3,15 @@
 Chỉ kiểm tra vai trò + trạng thái nguồn. Điều kiện nghiệp vụ khác (sở hữu, phân công,
 giới hạn lần giao, COD…) kiểm tra trong service của từng app.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .errors import BusinessError, ErrorCode
+
+# Đích "ở nguyên trạng thái hiện tại" (spec 009 D2): thao tác không đổi trạng thái nhưng áp dụng cho NHIỀU trạng
+# thái nguồn (vd nhận hàng về điểm tập kết khi Chờ giao lại hoặc Chờ xử lý hoàn). Chỉ tồn tại TRONG bảng:
+# `resolve_transition` luôn trả đích là trạng thái thật, nên code ngoài bảng (gán `status = rule.target`) không bao
+# giờ thấy giá trị này.
+KEEP = "__KEEP__"
 
 
 @dataclass(frozen=True)
@@ -18,14 +24,24 @@ class Transition:
     def is_initial(self):
         return not self.sources
 
+    @property
+    def keeps_status(self):
+        return self.target == KEEP
+
+    def target_from(self, source):
+        """Trạng thái đích khi đi từ `source` (giải `KEEP`)."""
+        return source if self.keeps_status else self.target
+
 
 def transition(sources, target, roles):
-    """Cú pháp gọn để khai báo bảng: transition([A, B], C, [ROLE])."""
+    """Cú pháp gọn để khai báo bảng: transition([A, B], C, [ROLE]) hoặc transition([A, B], KEEP, [ROLE])."""
+    if target == KEEP and not sources:
+        raise ValueError("KEEP cần trạng thái nguồn (hành động khởi tạo không 'giữ nguyên' được).")
     return Transition(frozenset(sources), target, frozenset(roles))
 
 
 def resolve_transition(table, action, current_status, role):
-    """Trả Transition hợp lệ hoặc raise BusinessError.
+    """Trả Transition hợp lệ (đích là trạng thái thật — đã giải KEEP) hoặc raise BusinessError.
 
     - Hành động không có trong bảng: lỗi lập trình → ValueError.
     - Sai vai trò → PERMISSION_DENIED.
@@ -42,7 +58,7 @@ def resolve_transition(table, action, current_status, role):
     valid_source = current_status is None if rule.is_initial else current_status in rule.sources
     if not valid_source:
         raise BusinessError(ErrorCode.INVALID_TRANSITION)
-    return rule
+    return replace(rule, target=rule.target_from(current_status)) if rule.keeps_status else rule
 
 
 def allowed_actions(table, current_status, role):

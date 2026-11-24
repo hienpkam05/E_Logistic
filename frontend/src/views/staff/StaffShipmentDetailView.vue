@@ -4,7 +4,7 @@
 // từ backend (đã lọc theo số lần giao — D8 / nơi giữ hàng — spec 008 D3); hoàn hàng (spec 008). Không có nút đặt
 // trạng thái
 // tùy ý (UC05.7 BR1). Mọi thao tác gửi updated_at của bản đang xem — 409 thì tải bản mới (E1).
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppIcon from '../../components/common/AppIcon.vue'
 import ConfirmDialog from '../../components/common/ConfirmDialog.vue'
@@ -14,16 +14,21 @@ import DispatchCard from '../../components/dispatch/DispatchCard.vue'
 import ShipperPicker from '../../components/dispatch/ShipperPicker.vue'
 import ShipmentEventList from '../../components/shipments/ShipmentEventList.vue'
 import ShipmentInfoCards from '../../components/shipments/ShipmentInfoCards.vue'
+import LiveLocationMap from '../../components/tracking/LiveLocationMap.vue'
 import { API_ERROR } from '../../services/http'
 import * as shipmentService from '../../services/shipmentService'
 import { useMetaStore } from '../../stores/meta'
 import { formatDateTime, formatPhone, formatVnd } from '../../utils/format'
 import { fieldErrors } from '../../utils/formErrors'
 import { FAIL_REASON_GROUP, HOLDER_TYPE, SHIPMENT_ACTION as A, TASK_TYPE, can } from '../../utils/shipmentActions'
-import { SHIPMENT_STATUS } from '../../utils/statusTones'
+import { SHIPMENT_STATUS, TASK_STATUS } from '../../utils/statusTones'
 
 // Nút thao tác — thứ tự hiển thị (nút phụ trước, nút chính sau). `dialog`: hộp xác nhận tương ứng.
 const ACTION_BUTTONS = [
+  { action: A.SWAP_SHIPPER, dialog: 'swap', label: 'Đổi Shipper', icon: 'users', tone: 'btn--outline' },
+  { action: A.CONFIRM_SWAP_HANDOVER, dialog: 'swap-receive', label: 'Xác nhận nhận hàng bàn giao', icon: 'warehouse', tone: 'btn--primary' },
+  { action: A.REPORT_SWAP_ISSUE, dialog: 'swap-issue', label: 'Ghi sai lệch bàn giao', icon: 'alert', tone: 'btn--danger-outline' },
+  { action: A.RECALL_TO_HUB, dialog: 'recall', label: 'Nhận hàng về điểm tập kết', icon: 'warehouse', tone: 'btn--primary' },
   { action: A.REJECT_REQUEST, dialog: 'reject', label: 'Từ chối', icon: 'ban', tone: 'btn--danger-outline' },
   { action: A.APPROVE_REQUEST, dialog: 'approve', label: 'Duyệt', icon: 'check', tone: 'btn--primary' },
   { action: A.ABANDON_PICKUP, dialog: 'abandon', label: 'Kết thúc', icon: 'ban', tone: 'btn--danger-outline' },
@@ -55,18 +60,24 @@ const id = computed(() => route.params.id)
 const buttons = computed(() => ACTION_BUTTONS.filter((b) => can(shipment.value, b.action)))
 const allowed = (dialogName) => buttons.value.some((b) => b.dialog === dialogName)
 
+let loadRequest = 0
+onBeforeUnmount(() => { loadRequest++ })
 async function load() {
+  const current = ++loadRequest
   loading.value = true
   loadError.value = ''
   notFound.value = false
   try {
-    shipment.value = await shipmentService.get(id.value)
+    const data = await shipmentService.get(id.value)
+    if (current !== loadRequest) return
+    shipment.value = data
   } catch (err) {
+    if (current !== loadRequest) return
     shipment.value = null
     if (err?.status === 404) notFound.value = true
     else loadError.value = err?.message || 'Chưa thể tải vận đơn.'
   } finally {
-    loading.value = false
+    if (current === loadRequest) loading.value = false
   }
 }
 
@@ -88,7 +99,7 @@ function openDialog(kind) {
   reasonError.value = ''
   reason.value = ''
   note.value = ''
-  shipperId.value = null
+  shipperId.value = kind === 'swap' ? openTask.value?.swap_candidate?.id ?? null : null
   handedOver.value = false
   receiverName.value = kind === 'shop-received' ? (shipment.value?.shop?.full_name ?? '') : ''
   verified.value = false
@@ -124,6 +135,34 @@ async function submit(action, successText) {
 }
 
 const version = () => shipment.value.updated_at
+const openTask = computed(() => shipment.value?.tasks?.find((t) =>
+  [TASK_STATUS.ACTIVE, TASK_STATUS.PENDING_SWAP_HANDOVER].includes(t.status)))
+const swapPending = computed(() => openTask.value?.status === TASK_STATUS.PENDING_SWAP_HANDOVER)
+const swapHoldsGoods = computed(() => openTask.value?.type === TASK_TYPE.DELIVERY)
+
+function dispatchAction(action) {
+  const button = buttons.value.find((b) => b.action === action)
+  if (button) openDialog(button.dialog)
+}
+
+function confirmSwap() {
+  if (busy.value || !allowed('swap') || !shipperId.value || !reason.value.trim()) return
+  submit(() => shipmentService.swapShipper(id.value, shipperId.value, reason.value.trim(), version()),
+    () => swapHoldsGoods.value ? 'Đã chọn Shipper dự kiến. Chỉ phân công khi đã xác nhận bàn giao tại điểm tập kết.'
+      : 'Đã thay Shipper lấy hàng. Người cũ mất quyền cập nhật; người mới đã nhận thông báo.')
+}
+
+function confirmSwapReceive() {
+  if (busy.value || !allowed('swap-receive') || !handedOver.value) return
+  submit(() => shipmentService.confirmSwapHandover(id.value, note.value.trim(), version()),
+    () => 'Đã xác nhận bàn giao và phân công người mới, giữ nguyên lần giao.')
+}
+
+function confirmRecall() {
+  if (busy.value || !allowed('recall')) return
+  submit(() => shipmentService.recallToHub(id.value, note.value.trim(), version()),
+    () => 'Đã nhận hàng về điểm tập kết. Có thể phân công giao lại hoặc tiếp nhận hoàn theo tiến trình đơn.')
+}
 
 function confirmApprove() {
   submit(() => shipmentService.approve(id.value, version()),
@@ -185,6 +224,13 @@ function confirmReceive() {
 
 // Các thao tác cần lý do: cùng một hộp thoại, khác nội dung.
 const REASON_DIALOGS = {
+  'swap-issue': {
+    title: 'Ghi sai lệch bàn giao', confirm: 'Ghi sai lệch', cancel: 'Hủy', field: 'Sai lệch bàn giao',
+    limit: 'task_note_max_length', danger: true,
+    text: () => 'Ghi lại sai lệch, giữ nhiệm vụ Chờ bàn giao đổi Shipper. Người mới chưa được cấp quyền.',
+    call: (r) => shipmentService.reportSwapIssue(id.value, r, version()),
+    done: () => 'Đã ghi sai lệch. Nhiệm vụ vẫn chờ bàn giao, chưa phân công người mới.',
+  },
   reject: {
     title: 'Từ chối yêu cầu gửi hàng?', confirm: 'Từ chối', cancel: 'Không từ chối', field: 'Lý do từ chối',
     limit: 'reject_reason_max_length',
@@ -297,10 +343,59 @@ watch(id, () => {
 
       <div class="detail-layout">
         <ShipmentInfoCards :shipment="shipment" show-shop>
-          <DispatchCard :shipment="shipment" />
+          <DispatchCard :shipment="shipment" @action="dispatchAction" />
         </ShipmentInfoCards>
+        <LiveLocationMap :key="`${id}:${shipment.updated_at}`" :shipment-id="id" class="card" only-when-open>
+          <h2 class="card__title">Theo dõi vị trí</h2>
+        </LiveLocationMap>
         <ShipmentEventList ref="eventList" :shipment-id="id" />
       </div>
+
+      <ConfirmDialog :open="dialog === 'swap'" :title="swapPending ? 'Đổi Shipper dự kiến' : 'Đổi Shipper'"
+                     confirm-label="Xác nhận đổi Shipper" :busy="busy"
+                     :confirm-disabled="!allowed('swap') || !shipperId || !reason.trim()"
+                     @confirm="confirmSwap" @cancel="dialog = ''">
+        <p>Người cũ: <strong>{{ openTask?.shipper?.full_name }}</strong> · {{ shipment.package_count }} kiện.</p>
+        <p v-if="swapHoldsGoods" class="alert alert--warning">
+          Người cũ đang giữ hàng. Người mới chỉ là dự kiến, chưa thấy nhiệm vụ; phải bàn giao về
+          {{ meta.hub?.name }} trước khi Nhân viên xác nhận. Không tăng số lần giao.
+        </p>
+        <p v-else>Người cũ chưa nhận hàng. Xác nhận sẽ thay ngay nhiệm vụ lấy và thu hồi quyền người cũ.</p>
+        <ShipperPicker v-if="dialog === 'swap'" v-model="shipperId" :exclude="openTask?.shipper?.id" :disabled="busy" />
+        <FormField v-model="reason" label="Lý do đổi Shipper" multiline required :disabled="busy"
+                   :maxlength="meta.limits.task_note_max_length" :error="reasonError" />
+        <p v-if="dialogError" class="alert alert--danger" role="alert">{{ dialogError }}</p>
+      </ConfirmDialog>
+
+      <ConfirmDialog :open="dialog === 'swap-receive'" title="Xác nhận nhận hàng bàn giao"
+                     confirm-label="Xác nhận bàn giao" :busy="busy"
+                     :confirm-disabled="!allowed('swap-receive') || !handedOver"
+                     @confirm="confirmSwapReceive" @cancel="dialog = ''">
+        <dl class="details">
+          <dt>Người giao</dt><dd>{{ openTask?.shipper?.full_name }}</dd>
+          <dt>Người mới dự kiến</dt><dd>{{ openTask?.swap_candidate?.full_name }}</dd>
+          <dt>Kiện hàng</dt><dd>{{ shipment.package_count }} kiện · {{ shipment.package_description }}</dd>
+        </dl>
+        <p v-if="!openTask?.handover_reported_at" class="alert alert--warning">
+          Shipper chưa báo đã đưa hàng về. Chỉ xác nhận khi đã nhận và kiểm tra đủ hàng thực tế tại điểm tập kết.
+        </p>
+        <label class="checkbox"><input v-model="handedOver" type="checkbox" :disabled="busy" />
+          Tôi đã nhận đủ hàng và Shipper mới đã nhận hàng tại điểm tập kết.
+        </label>
+        <FormField v-model="note" label="Ghi chú bàn giao (không bắt buộc)" multiline :disabled="busy"
+                   :maxlength="meta.limits.handover_note_max_length" />
+        <p>Giữ nguyên lần giao; chỉ sau xác nhận này người mới có quyền thực hiện nhiệm vụ.</p>
+        <p v-if="dialogError" class="alert alert--danger" role="alert">{{ dialogError }}</p>
+      </ConfirmDialog>
+
+      <ConfirmDialog :open="dialog === 'recall'" title="Nhận hàng về điểm tập kết" confirm-label="Đã nhận đủ hàng"
+                     :busy="busy" :confirm-disabled="!allowed('recall')" @confirm="confirmRecall" @cancel="dialog = ''">
+        <p>Nhận từ <strong>{{ holder?.full_name }}</strong>: {{ shipment.package_count }} kiện · {{ shipment.package_description }}.</p>
+        <p>Chỉ xác nhận sau khi nhận đủ hàng thực tế tại {{ meta.hub?.name }}. Trạng thái đơn và số lần giao được giữ.</p>
+        <FormField v-model="note" label="Ghi chú sai lệch (không bắt buộc)" multiline :disabled="busy"
+                   :maxlength="meta.limits.handover_note_max_length" />
+        <p v-if="dialogError" class="alert alert--danger" role="alert">{{ dialogError }}</p>
+      </ConfirmDialog>
 
       <ConfirmDialog :open="dialog === 'approve'" title="Duyệt yêu cầu gửi hàng?" confirm-label="Duyệt"
                      cancel-label="Để sau" :busy="busy" :confirm-disabled="!allowed('approve')"
